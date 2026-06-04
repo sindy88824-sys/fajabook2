@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>非夾不可 - 條碼槍庫存管理系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+
+    <div id="app" class="max-w-7xl mx-auto p-4 md:p-6">
+        
+        <!-- 頁首 -->
+        <header class="mb-6 border-b pb-4 border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-blue-600">🕹️ 非夾不可 - 條碼槍庫存管理系統</h1>
+                <p class="text-xs text-slate-500 mt-1">專為條碼槍設計，快速實現商品掃碼進庫、出庫與月份統計</p>
+            </div>
+            <div class="bg-blue-600 text-white px-4 py-2 rounded-xl text-center shadow-xs">
+                <span class="block text-xs opacity-80">全店在庫總數</span>
+                <span class="text-2xl font-bold">{{ totalItems }} <span class="text-sm font-normal">件</span></span>
+            </div>
+        </header>
+
+        <!-- 主要操作區（左進右出） -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            
+            <!-- 【左側：掃碼入庫區】 -->
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-emerald-100">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-emerald-700 flex items-center">
+                        <span class="bg-emerald-100 text-emerald-700 p-1.5 rounded-lg mr-2">📥</span> 快速掃碼入庫 (進貨/回補)
+                    </h2>
+                </div>
+                
+                <!-- 條碼槍主輸入框 -->
+                <div class="bg-emerald-50 p-4 rounded-xl mb-3 border border-emerald-200">
+                    <label class="block text-xs font-bold text-emerald-800 mb-1">請將游標點在此框後，開始刷條碼：</label>
+                    <input ref="barcodeInInput" v-model="barcodeIn" @keyup.enter="handleBarcodeIn" type="text" placeholder="🔍 刷條碼..." class="w-full p-3 border-2 border-emerald-400 rounded-lg text-lg font-mono focus:ring-4 focus:ring-emerald-200 outline-none bg-white">
+                </div>
+
+                <!-- 選擇入庫原因 -->
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 mb-4">
+                    <span class="block text-xs font-bold text-slate-500 mb-2">選擇目前入庫原因：</span>
+                    <div class="flex flex-wrap gap-4 text-xs">
+                        <label class="inline-flex items-center cursor-pointer font-medium text-slate-700"><input type="radio" v-model="inReason" value="掃碼入庫" class="mr-1 accent-emerald-600"> 📥 正常進貨/補貨</label>
+                        <label class="inline-flex items-center cursor-pointer font-medium text-slate-700"><input type="radio" v-model="inReason" value="客人換點" class="mr-1 accent-emerald-600"> 🔄 客人商品換點數 (夾換回補)</label>
+                    </div>
+                </div>
+
+                <!-- 手動微調/新建區 -->
+                <details class="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg">
+                    <summary class="cursor-pointer font-medium text-xs text-slate-500 hover:text-slate-800">📋 手動進貨/建立條碼資料</summary>
+                    <div class="mt-3 space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs mb-1">商品條碼 (必填)</label>
+                                <input v-model="manualIn.barcode" type="text" class="w-full p-2 border rounded bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1">商品名稱 (必填)</label>
+                                <input v-model="manualIn.name" type="text" class="w-full p-2 border rounded bg-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="block text-xs mb-1">儲存庫存位置</label>
+                                <select v-model="manualIn.location" class="w-full p-2 border rounded bg-white">
+                                    <option value="員休">員休</option>
+                                    <option value="B1倉">B1倉</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs mb-1">入庫數量</label>
+                                <input v-model.number="manualIn.quantity" type="number" min="1" class="w-full p-2 border rounded bg-white">
+                            </div>
+                            <div class="flex items-end">
+                                <button @click="submitManualIn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded text-xs font-bold transition">確認建立並入庫</button>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <!-- 【右側：掃碼出庫區】 -->
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-amber-100">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-amber-700 flex items-center">
+                        <span class="bg-amber-100 text-amber-700 p-1.5 rounded-lg mr-2">📤</span> 快速掃碼出庫 (扣除庫存)
+                    </h2>
+                </div>
+
+                <!-- 條碼槍主輸入框 -->
+                <div class="bg-amber-50 p-4 rounded-xl mb-4 border border-amber-200">
+                    <label class="block text-xs font-bold text-amber-800 mb-1">請將游標點在此框後，開始刷條碼：</label>
+                    <input ref="barcodeOutInput" v-model="barcodeOut" @keyup.enter="handleBarcodeOut" type="text" placeholder="🔍 刷條碼..." class="w-full p-3 border-2 border-amber-400 rounded-lg text-lg font-mono focus:ring-4 focus:ring-amber-200 outline-none bg-white">
+                </div>
+
+                <!-- 快速選擇出庫原因 -->
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <span class="block text-xs font-bold text-slate-500 mb-2">選擇目前出庫原因：</span>
+                    <div class="flex flex-wrap gap-4 text-xs">
+                        <label class="inline-flex items-center cursor-pointer font-medium text-slate-700"><input type="radio" v-model="outReason" value="機台夾出" class="mr-1 accent-amber-600"> 🕹️ 機台夾出</label>
+                        <label class="inline-flex items-center cursor-pointer font-medium text-slate-700"><input type="radio" v-model="outReason" value="點數兌換" class="mr-1 accent-amber-600"> 🎁 點數兌換</label>
+                        <label class="inline-flex items-center cursor-pointer font-medium text-slate-700"><input type="radio" v-model="outReason" value="活動支出" class="mr-1 accent-amber-600"> 🎉 活動支出</label>
+                        <label class="inline-flex items-center cursor-pointer font-medium text-slate-700"><input type="radio" v-model="outReason" value="商品撤換/損壞" class="mr-1 accent-amber-600"> ❌ 商品撤換/損壞</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 下方區塊：現有總庫存 VS 日期分類報表 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- 1. 目前現有總庫存列表 -->
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-100 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-2">
+                    <h3 class="font-bold text-slate-700">📦 「非夾不可」現有在庫明細</h3>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <input v-model="searchQuery" type="text" placeholder="搜尋條碼、品名..." class="p-1.5 px-3 border rounded-lg text-xs bg-white w-full sm:w-40 outline-none">
+                        <select v-model="filterLocation" class="border rounded-lg text-xs p-1 bg-white">
+                            <option value="">所有位置</option>
+                            <option value="員休">員休</option>
+                            <option value="B1倉">B1倉</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-medium text-xs">
+                                <th class="p-3">條碼 (Barcode)</th>
+                                <th class="p-3">商品名稱</th>
+                                <th class="p-3">庫存位置</th>
+                                <th class="p-3 text-center">目前在庫</th>
+                                <th class="p-3 text-right">管理</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr v-for="item in filteredProducts" :key="item.barcode" class="hover:bg-slate-50/50 transition">
+                                <td class="p-3 font-mono text-xs text-blue-600 font-semibold">{{ item.barcode }}</td>
+                                <td class="p-3 font-medium text-slate-800">{{ item.name }}</td>
+                                <td class="p-3">
+                                    <span :class="item.location === '員休' ? 'bg-indigo-50 text-indigo-700' : 'bg-sky-50 text-sky-700'" class="px-2 py-0.5 rounded text-xs font-semibold">
+                                        {{ item.location }}
+                                    </span>
+                                </td>
+                                <td class="p-3 text-center">
+                                    <span :class="item.quantity <= 2 ? 'bg-red-50 text-red-600 font-bold' : 'text-slate-700 font-semibold'" class="px-2 py-1 rounded">
+                                        {{ item.quantity }} 件
+                                    </span>
+                                </td>
+                                <td class="p-3 text-right">
+                                    <button @click="deleteProduct(item.barcode)" class="text-slate-300 hover:text-red-500 transition" title="徹底移除此商品記錄">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr v-if="filteredProducts.length === 0">
+                                <td colspan="5" class="text-center p-6 text-slate-400">尚無符合的商品庫存。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. 日期與月份進出報表 -->
+            <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                <div class="p-4 bg-slate-100 border-b border-slate-200">
+                    <h3 class="font-bold text-slate-700">📅 月份與日期進出報表 (2026)</h3>
+                </div>
+                
+                <div class="p-4 space-y-4 max-h-[550px] overflow-y-auto">
+                    <!-- 依據月份分組 -->
+                    <div v-for="(monthData, month) in monthlyReport" :key="month" class="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/50">
+                        <!-- 月份大標題 -->
+                        <div class="bg-slate-200/60 p-3 flex justify-between items-center text-sm font-bold text-slate-700">
+                            <span>📅 {{ month }} 月份</span>
+                            <div class="text-xs space-x-2">
+                                <span class="text-emerald-700">進/回補: +{{ monthData.totalIn }}</span>
+                                <span class="text-amber-700">出: -{{ monthData.totalOut }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 詳細日期流水帳 -->
+                        <div class="p-2 divide-y divide-slate-100 text-xs bg-white">
+                            <div v-for="log in monthData.logs" :key="log.id" class="py-2 flex justify-between items-start gap-2">
+                                <div>
+                                    <span class="text-slate-400 block text-[10px]">{{ log.time }}</span>
+                                    <span class="font-medium text-slate-700">{{ log.name }}</span>
+                                    <div class="flex gap-1.5 mt-0.5">
+                                        <span class="text-slate-400 font-mono text-[10px]">條碼: {{ log.barcode }}</span>
+                                        <span class="text-slate-400 text-[10px]">位置: {{ log.location }}</span>
+                                    </div>
+                                </div>
+                                <div class="text-right whitespace-nowrap">
+                                    <!-- 入庫顯示 -->
+                                    <span v-if="log.type === 'IN'" :class="log.reason === '客人換點' ? 'bg-teal-50 text-teal-700' : 'bg-emerald-50 text-emerald-700'" class="px-1.5 py-0.5 rounded font-bold">
+                                        +{{ log.qty }} {{ log.reason }}
+                                    </span>
+                                    <!-- 出庫顯示 -->
+                                    <span v-if="log.type === 'OUT'" class="bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold">
+                                        -{{ log.qty }} {{ log.reason }}
+                                    </span>
+                                    <button @click="rollbackLog(log)" class="block text-[10px] text-slate-300 hover:text-blue-500 mt-1 underline ml-auto">還原</button>
+                                </div>
+                            </div>
+                            <div v-if="monthData.logs.length === 0" class="text-center py-4 text-slate-400">當月尚無進出紀錄</div>
+                        </div>
+                    </div>
+
+                    <div v-if="Object.keys(monthlyReport).length === 0" class="text-center py-8 text-slate-400 text-sm">
+                        暫無任何進出庫歷史流水紀錄。
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- 系統核心邏輯 -->
+    <script>
+        const { createApp, ref, computed, watch } = Vue;
+
+        createApp({
+            setup() {
+                const defaultProducts = [
+                    { barcode: '4710123456789', name: '大隻吉伊卡哇烏薩奇', location: '員休', quantity: 8 },
+                    { barcode: '4710987654321', name: '限量貓貓造型吊飾', location: 'B1倉', quantity: 25 }
+                ];
+                const defaultLogs = [
+                    { id: 1, month: '2026-06', time: '06-01 12:00', type: 'IN', barcode: '4710123456789', name: '大隻吉伊卡哇烏薩奇', location: '員休', qty: 8, reason: '掃碼入庫' },
+                    { id: 2, month: '2026-06', time: '06-04 15:30', type: 'OUT', barcode: '4710987654321', name: '限量貓貓造型吊飾', location: 'B1倉', qty: 1, reason: '機台夾出' },
+                    { id: 3, month: '2026-06', time: '06-04 18:10', type: 'OUT', barcode: '4710123456789', name: '大隻吉伊卡哇烏薩奇', location: '員休', qty: 1, reason: '點數兌換' }
+                ];
+
+                const products = ref(JSON.parse(localStorage.getItem('fjbk_products')) || defaultProducts);
+                const actionLogs = ref(JSON.parse(localStorage.getItem('fjbk_logs')) || defaultLogs);
+
+                // 狀態繫結
+                const barcodeIn = ref('');
+                const barcodeOut = ref('');
+                const inReason = ref('掃碼入庫'); // 預設為掃碼入庫
+                const outReason = ref('機台夾出');
+                const searchQuery = ref('');
+                const filterLocation = ref('');
+
+                // 手動建立商品表單
+                const manualIn = ref({ barcode: '', name: '', location: '員休', quantity: 1 });
+
+                watch(products, (newVal) => localStorage.setItem('fjbk_products', JSON.stringify(newVal)), { deep: true });
+                watch(actionLogs, (newVal) => localStorage.setItem('fjbk_logs', JSON.stringify(newVal)), { deep: true });
+
+                const totalItems = computed(() => products.value.reduce((sum, p) => sum + p.quantity, 0));
+
+                const filteredProducts = computed(() => {
+                    return products.value.filter(p => {
+                        const s = searchQuery.value.toLowerCase();
+                        const matchSearch = p.barcode.includes(s) || p.name.toLowerCase().includes(s);
+                        const matchLoc = !filterLocation.value || p.location === filterLocation.value;
+                        return matchSearch && matchLoc;
+                    });
+                });
+
+                const getNowTimeInfo = () => {
+                    const now = new Date();
+                    const mm = String(now.getMonth() + 1).padStart(2, '0');
+                    const dd = String(now.getDate()).padStart(2, '0');
+                    const hh = String(now.getHours()).padStart(2, '0');
+                    const min = String(now.getMinutes()).padStart(2, '0');
+                    return {
+                        monthKey: `${now.getFullYear()}-${mm}`,
+                        timeStr: `${mm}-${dd} ${hh}:${min}`
+                    };
+                };
+
+                // 【條碼槍：掃碼入庫】
+                const handleBarcodeIn = () => {
+                    const code = barcodeIn.value.trim();
+                    if (!code) return;
+
+                    const item = products.value.find(p => p.barcode === code);
+                    const timeInfo = getNowTimeInfo();
+
+                    if (item) {
+                        item.quantity += 1;
+                        actionLogs.value.unshift({
+                            id: Date.now(),
+                            month: timeInfo.monthKey,
+                            time: timeInfo.timeStr,
+                            type: 'IN',
+                            barcode: item.barcode,
+                            name: item.name,
+                            location: item.location,
+                            qty: 1,
+                            reason: inReason.value // 根據單選按鈕動態決定 (掃碼入庫 或 客人換點)
+                        });
+                    } else {
+                        const pName = prompt(`【新條碼發現：${code}】\n請輸入商品名稱：`, '');
+                        if (pName && pName.trim()) {
+                            let pLoc = prompt('請輸入庫存位置（員休 / B1倉）：', '員休');
+                            if(!pLoc) pLoc = '員休';
+                            
+                            products.value.push({
+                                barcode: code,
+                                name: pName.trim(),
+                                location: pLoc.trim(),
+                                quantity: 1
+                            });
+                            actionLogs.value.unshift({
+                                id: Date.now(),
+                                month: timeInfo.monthKey,
+                                time: timeInfo.timeStr,
+                                type: 'IN',
+                                barcode: code,
+                                name: pName.trim(),
+                                location: pLoc.trim(),
+                                qty: 1,
+                                reason: inReason.value === '客人換點' ? '客人換點' : '建立新條碼'
+                            });
+                        }
+                    }
+                    barcodeIn.value = ''; 
+                };
+
+                // 【條碼槍：掃碼出庫】
+                const handleBarcodeOut = () => {
+                    const code = barcodeOut.value.trim();
+                    if (!code) return;
+
+                    const item = products.value.find(p => p.barcode === code);
+                    const timeInfo = getNowTimeInfo();
+
+                    if (item) {
+                        if (item.quantity <= 0) {
+                            alert(`警告：商品【${item.name}】在 [${item.location}] 的庫存量已為 0，無法再出庫！`);
+                        } else {
+                            item.quantity -= 1;
+                            actionLogs.value.unshift({
+                                id: Date.now(),
+                                month: timeInfo.monthKey,
+                                time: timeInfo.timeStr,
+                                type: 'OUT',
+                                barcode: item.barcode,
+                                name: item.name,
+                                location: item.location,
+                                qty: 1,
+                                reason: outReason.value
+                            });
+                        }
+                    } else {
+                        alert(`錯誤：資料庫找不到條碼為 [${code}] 的商品！`);
+                    }
+                    barcodeOut.value = ''; 
+                };
+
+                const submitManualIn = () => {
+                    const code = manualIn.value.barcode.trim();
+                    const name = manualIn.value.name.trim();
+                    if (!code || !name) {
+                        alert('條碼與商品名稱皆為必填項目！');
+                        return;
+                    }
+                    const timeInfo = getNowTimeInfo();
+                    const item = products.value.find(p => p.barcode === code);
+
+                    if (item) {
+                        item.quantity += manualIn.value.quantity;
+                        item.location = manualIn.value.location;
+                    } else {
+                        products.value.push({
+                            barcode: code,
+                            name: name,
+                            location: manualIn.value.location,
+                            quantity: manualIn.value.quantity
+                        });
+                    }
+
+                    actionLogs.value.unshift({
+                        id: Date.now(),
+                        month: timeInfo.monthKey,
+                        time: timeInfo.timeStr,
+                        type: 'IN',
+                        barcode: code,
+                        name: name,
+                        location: manualIn.value.location,
+                        qty: manualIn.value.quantity,
+                        reason: '手動登錄入庫'
+                    });
+
+                    manualIn.value = { barcode: '', name: '', location: '員休', quantity: 1 };
+                };
+
+                const deleteProduct = (barcode) => {
+                    if (confirm('確定要永久刪除此商品和目前的庫存量嗎？（不影響歷史報表）')) {
+                        products.value = products.value.filter(p => p.barcode !== barcode);
+                    }
+                };
+
+                const rollbackLog = (log) => {
+                    if (confirm(`確定要還原這筆紀錄嗎？系統會自動補回/扣除庫存數量。`)) {
+                        const item = products.value.find(p => p.barcode === log.barcode);
+                        if (log.type === 'IN') {
+                            if (item) item.quantity = Math.max(0, item.quantity - log.qty);
+                        } else if (log.type === 'OUT') {
+                            if (item) {
+                                item.quantity += log.qty;
+                            } else {
+                                products.value.push({ barcode: log.barcode, name: log.name, location: log.location || '員休', quantity: log.qty });
+                            }
+                        }
+                        actionLogs.value = actionLogs.value.filter(l => l.id !== log.id);
+                    }
+                };
+
+                const monthlyReport = computed(() => {
+                    const report = {};
+                    const sortedLogs = [...actionLogs.value];
+                    
+                    sortedLogs.forEach(log => {
+                        const m = log.month; 
+                        if (!report[m]) {
+                            report[m] = { totalIn: 0, totalOut: 0, logs: [] };
+                        }
+                        
+                        report[m].logs.push(log);
+                        
+                        if (log.type === 'IN') {
+                            report[m].totalIn += log.qty;
+                        } else if (log.type === 'OUT') {
+                            report[m].totalOut += log.qty;
+                        }
+                    });
+                    
+                    return report;
+                });
+
+                return {
+                    products, actionLogs, barcodeIn, barcodeOut, inReason, outReason, searchQuery, filterLocation, manualIn,
+                    totalItems, filteredProducts, monthlyReport,
+                    handleBarcodeIn, handleBarcodeOut, submitManualIn, deleteProduct, rollbackLog
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
