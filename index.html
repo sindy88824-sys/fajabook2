@@ -823,7 +823,83 @@
         </div>
     </div>
 
-    <script>
+    <script>// 🔒 多角色帳號密碼登入驗證設定
+const ACCOUNTS = {
+    "$$$": { pass: "0000", role: "boss", name: "店長" },
+    "CHI": { pass: "8888", role: "store main", name: "倉管" }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    // 檢查是否已經登入過
+    if (sessionStorage.getItem("isLoggedIn") === "true") {
+        const savedRole = sessionStorage.getItem("userRole");
+        if (savedRole && typeof currentRole !== "undefined") {
+            currentRole = savedRole; // 自動套用已儲存的權限
+        }
+        return;
+    }
+
+    // 動態建立全螢幕登入遮罩
+    const loginOverlay = document.createElement("div");
+    loginOverlay.id = "loginOverlay";
+    loginOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm";
+    loginOverlay.innerHTML = `
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-slate-100">
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
+                <h2 class="text-xl font-bold text-slate-800">非夾不可系統登入</h2>
+                <p class="text-xs text-slate-500 mt-1">請輸入帳號密碼以繼續操作</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">帳號</label>
+                    <input type="text" id="loginUser" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入帳號">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼</label>
+                    <input type="password" id="loginPass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入密碼">
+                </div>
+                <div id="loginError" class="text-xs text-rose-500 text-center hidden">帳號或密碼錯誤，請重新輸入</div>
+                <button id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition text-sm shadow-sm">
+                    登入系統
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(loginOverlay);
+
+    // 登入驗證邏輯
+    const doLogin = () => {
+        const u = document.getElementById("loginUser").value.trim();
+        const p = document.getElementById("loginPass").value.trim();
+        const err = document.getElementById("loginError");
+
+        if (ACCOUNTS[u] && ACCOUNTS[u].pass === p) {
+            const userConfig = ACCOUNTS[u];
+            sessionStorage.setItem("isLoggedIn", "true");
+            sessionStorage.setItem("userRole", userConfig.role);
+            sessionStorage.setItem("userName", userConfig.name);
+            
+            // 更新系統當前權限變數
+            if (typeof currentRole !== "undefined") {
+                currentRole = userConfig.role;
+            }
+
+            loginOverlay.remove();
+        } else {
+            err.classList.remove("hidden");
+        }
+    };
+
+    // 綁定點擊與 Enter 事件
+    document.getElementById("loginBtn").onclick = doLogin;
+    document.getElementById("loginPass").onkeypress = (e) => {
+        if (e.key === "Enter") doLogin();
+    };
+    document.getElementById("loginUser").onkeypress = (e) => {
+        if (e.key === "Enter") document.getElementById("loginPass").focus();
+    };
+});
 // 🛡️ 初始化同步狀態介面與按鈕
 document.addEventListener("DOMContentLoaded", () => {
     let syncDiv = document.getElementById("syncStatus");
