@@ -888,31 +888,7 @@
         }
 
         // 🔗 儲存資料至 Google 雲端
-        async function saveToCloud() {
-            if (!WEB_APP_URL || WEB_APP_URL.includes("AKfycb...")) return;
-            try {
-                setSyncStatus('loading', '儲存中...');
-                const payload = {
-                    supplierList,
-                    purchaseOrders,
-                    stockList,
-                    machineRecords,
-                    storeExpenses,
-                    paymentRecords,
-                    cashflowRecords
-                };
-                await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'saveAll', store: currentStore, payload })
-                });
-                setSyncStatus('success', '雲端同步正常');
-            } catch (err) {
-                console.error("儲存雲端失敗", err);
-                setSyncStatus('error', '雲端儲存失敗');
-            }
-        }
+     整段
 
         function setSyncStatus(status, text) {
             const btn = document.getElementById('syncBtn');
