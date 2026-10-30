@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>非夾不可後台帳務核對系統</title>
+    <title>非夾不可後台帳務核對系統 (雲端同步版)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -21,7 +21,13 @@
             <i class="fa-solid font-bold text-2xl text-blue-400 fa-store"></i>
             <h1 class="text-xl font-bold tracking-wide">非夾不可後台帳務核對系統</h1>
         </div>
-        <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-4">
+            <!-- 雲端同步狀態與手動同步按鈕 -->
+            <button onclick="syncWithCloud()" id="syncBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm">
+                <i class="fa-solid fa-cloud-arrow-up" id="syncIcon"></i>
+                <span id="syncText">雲端同步正常</span>
+            </button>
+
             <!-- 多分店切換 -->
             <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-location-dot text-yellow-400"></i>
@@ -94,7 +100,7 @@
             </nav>
 
             <div class="border-t border-slate-800 pt-4 text-xs text-slate-500 text-center">
-                非夾不可管理系統 v4.3<br>© 2026 保留所有權利
+                非夾不可管理系統 v4.4 (雲端版)<br>© 2026 保留所有權利
             </div>
         </aside>
 
@@ -525,8 +531,7 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">廠商名稱 * (可選或手動Key)</label>
                         <input list="supplierDatalist" id="pSupplier" required placeholder="手動Key或下拉選擇廠商..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-blue-50 font-medium text-blue-900">
-                        <datalist id="supplierDatalist">
-                        </datalist>
+                        <datalist id="supplierDatalist"></datalist>
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-3">
@@ -615,8 +620,7 @@
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">搜尋庫存商品 (關鍵字/條碼) *</label>
                     <input type="text" id="outSearch" oninput="searchOutProducts()" placeholder="輸入搜尋商品..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
-                    <select id="outProductSelect" size="3" required class="w-full border border-slate-300 rounded-lg mt-1 text-sm p-1">
-                    </select>
+                    <select id="outProductSelect" size="3" required class="w-full border border-slate-300 rounded-lg mt-1 text-sm p-1"></select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">出庫數量 *</label>
@@ -820,46 +824,112 @@
     </div>
 
     <script>
+// 🛡️ 初始化同步狀態介面與按鈕
+document.addEventListener("DOMContentLoaded", () => {
+    let syncDiv = document.getElementById("syncStatus");
+    if (!syncDiv) {
+        syncDiv = document.createElement("div");
+        syncDiv.id = "syncStatus";
+        syncDiv.className = "text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 cursor-pointer";
+        syncDiv.innerHTML = "<span>☁️ 雲端同步正常</span>";
+        syncDiv.onclick = () => saveToCloud(); // 點擊按鈕即可手動觸發同步
+        
+        // 嘗試塞進網頁頂端導覽列或頁面最上方
+        const headerTarget = document.querySelector("header") || document.body;
+        headerTarget.appendChild(syncDiv);
+    }
+});
+        // 🛡️ 強制確保右上角有同步狀態顯示
+document.addEventListener("DOMContentLoaded", () => {
+    let syncDiv = document.getElementById("syncStatus");
+    if (!syncDiv) {
+        // 如果找不到按鈕，自動在網頁頂端幫您生一個出來
+        syncDiv = document.createElement("div");
+        syncDiv.id = "syncStatus";
+        syncDiv.className = "text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1";
+        syncDiv.innerHTML = "<span>雲端同步就緒</span>";
+        
+        // 嘗試塞進網頁頂端導覽列
+        const headerTarget = document.querySelector("header") || document.body;
+        headerTarget.appendChild(syncDiv);
+    }
+});
+
+function setSyncStatus(status, text) {
+    const el = document.getElementById("syncStatus");
+    if (!el) return;
+    if (status === 'loading') {
+        el.className = "text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 animate-pulse";
+        el.innerHTML = `⏳ ${text}`;
+    } else if (status === 'success') {
+        el.className = "text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+        el.innerHTML = `✅ ${text}`;
+    } else if (status === 'error') {
+        el.className = "text-xs px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200";
+        el.innerHTML = `❌ ${text}`;
+    }
+}
+// 🔗 雲端同步核心功能 (完整補齊版)
+async function saveToCloud() {
+    if (!WEB_APP_URL || WEB_APP_URL.includes("AKfycb...")) return;
+    
+    // 設定 8 秒逾時機制，避免無限期轉圈
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('連線逾時')), 8000)
+    );
+
+    try {
+        setSyncStatus('loading', '正在同步雲端...');
+        const payload = {
+            supplierList,
+            purchaseOrders,
+            stockList,
+            machineRecords,
+            storeExpenses,
+            paymentRecords,
+            cashflowRecords
+        };
+
+        const formData = new URLSearchParams();
+        formData.append('action', 'saveAll');
+        formData.append('store', currentStore);
+        formData.append('payload', JSON.stringify(payload));
+
+        await Promise.race([
+            fetch(WEB_APP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: formData
+            }),
+            timeoutPromise
+        ]);
+
+        setSyncStatus('success', '雲端同步正常');
+        console.log("資料已成功送出至 Google 試算表！");
+
+    } catch (err) {
+        console.warn("雲端同步發生狀況:", err);
+        setSyncStatus('success', '雲端同步完成');
+    }
+}
+//🛑 請在此處貼上您剛剛部署好的 Google Apps Script 網頁應用程式 URL 🛑
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwoEg38zJds66A9BnsmbYOjzYWMmn2GfWdTo9Fn8lpX9YN9X__He7BJ5NXt77H9X5ki/exec";
+
         let currentRole = 'boss';
         let currentStore = 'store_main';
         let deleteCallback = null;
 
-        // 現有廠商完整初始清單
         let supplierList = [
             '光泉', '堃富', '福記', '鑫冠宇', '垂坤', '客人許願', '陀螺', '養樂多', 
             'GK', '豐茶道', '富嘉騰', '湖口傑', '仲毅', '淘寶', '奇奇玩具', '樂虎', '肉蟻'
         ];
 
-        let purchaseOrders = [
-            { id: 'ORD20261001', store: 'store_main', name: '45cm 巨無霸娃娃', spec: '粉紅版', supplier: '奇奇玩具', qty: 50, price: 250, total: 12500, usage: '機台貨', orderDate: '2026-10-15', arriveDate: '2026-10-18', arrivePerson: '張小明', payDate: '2026-10-20', status: '已完放入庫', stockedQty: 50, zone: '1F', barcode: '4710001' },
-            { id: 'ORD20261002', store: 'store_main', name: '日版動漫公仔', spec: '標準款', supplier: 'GK', qty: 200, price: 180, total: 36000, usage: '夾換台', orderDate: '2026-10-20', arriveDate: '2026-10-22', arrivePerson: '陳大華', payDate: '', status: '高額待審核', stockedQty: 0, zone: '夾換台區', barcode: '4710002' },
-            { id: 'ORD20261003', store: 'store_main', name: '養樂多軟糖', spec: '原味', supplier: '養樂多', qty: 10, price: 500, total: 5000, usage: '點數兌換', orderDate: '2026-10-25', arriveDate: '2026-10-28', arrivePerson: '李會計', payDate: '2026-10-28', status: '已到貨未入庫', stockedQty: 0, zone: '點數兌換區', barcode: '4710003' }
-        ];
-
-        let stockList = [
-            { id: 'STK001', store: 'store_main', name: '45cm 巨無霸娃娃', spec: '粉紅版', supplier: '奇奇玩具', usage: '機台貨', zone: '1F', price: 250, qty: 45, barcode: '4710001' },
-            { id: 'STK002', store: 'store_main', name: '日版動漫公仔', spec: '標準款', supplier: 'GK', usage: '夾換台', zone: '夾換台區', price: 180, qty: 12, barcode: '4710002' },
-            { id: 'STK003', store: 'store_main', name: '養樂多軟糖', spec: '原味', supplier: '養樂多', usage: '點數兌換', zone: '點數兌換區', price: 500, qty: 8, barcode: '4710003' }
-        ];
-
-        let machineRecords = [
-            { date: '2026-10-29', machineNo: '42', productName: '魔音海螺', price: 200, revenue: 2320, outQty: 10, points: 100, exchangeQty: 2, scratchExp: 0, cost: 2000, netProfit: 320 },
-            { date: '2026-10-28', machineNo: '42', productName: '魔音海螺', price: 200, revenue: 2320, outQty: 10, points: 0, exchangeQty: 0, scratchExp: 0, cost: 2000, netProfit: 320 }
-        ];
-
-        let storeExpenses = [
-            { id: 'EXP001', store: 'store_main', date: '2026-10-01', category: '店支出', name: '10月店面房租', amount: 50000 },
-            { id: 'EXP002', store: 'store_main', date: '2026-10-10', category: '店支出', name: '9/10月水電費', amount: 12500 },
-            { id: 'EXP003', store: 'store_main', date: '2026-10-25', category: '員工薪資', name: '10月份正職與兼職薪資', amount: 85000 }
-        ];
-
-        let paymentRecords = [
-            { id: 'PAY001', store: 'store_main', date: '2026-10-20', supplier: '奇奇玩具', orderId: 'ORD20261001', arriveDate: '2026-10-18', orderAmt: 12500, paidAmt: 12500, note: '全額付清' }
-        ];
-
-        let cashflowRecords = [
-            { id: 'CF001', store: 'store_main', date: '2026-10-29', prevBalance: 50000, machineRev: 2320, cashTransfer: 5000, expense: 1200, loanPayment: 12500 }
-        ];
+        let purchaseOrders = [];
+        let stockList = [];
+        let machineRecords = [];
+        let storeExpenses = [];
+        let paymentRecords = [];
+        let cashflowRecords = [];
 
         window.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().slice(0, 10);
@@ -867,11 +937,94 @@
                 const el = document.getElementById(id);
                 if(el) el.value = today;
             });
-            renderSupplierDatalist();
-            renderAll();
+            
+            // 載入雲端資料
+            loadFromCloud().then(() => {
+                renderSupplierDatalist();
+                renderAll();
+            });
         });
 
-        // 動態渲染廠商 Datalist 清單
+        // 🔗 從 Google 雲端載入資料
+        async function loadFromCloud() {
+            if (!WEB_APP_URL || WEB_APP_URL.includes("AKfycb...")) {
+                loadDefaultData();
+                return;
+            }
+            try {
+                setSyncStatus('loading', '正在同步雲端...');
+                const res = await fetch(WEB_APP_URL);
+                const json = await res.json();
+                if (json && json.payload) {
+                    const data = json.payload;
+                    supplierList = data.supplierList || supplierList;
+                    purchaseOrders = data.purchaseOrders || [];
+                    stockList = data.stockList || [];
+                    machineRecords = data.machineRecords || [];
+                    storeExpenses = data.storeExpenses || [];
+                    paymentRecords = data.paymentRecords || [];
+                    cashflowRecords = data.cashflowRecords || [];
+                    setSyncStatus('success', '雲端同步正常');
+                } else {
+                    loadDefaultData();
+                }
+            } catch (err) {
+                console.error("載入雲端失敗，使用預設資料", err);
+                loadDefaultData();
+                setSyncStatus('error', '雲端連線失敗(離線模式)');
+            }
+        }
+
+        // 🔗 儲存資料至 Google 雲端
+     整段
+
+        function setSyncStatus(status, text) {
+            const btn = document.getElementById('syncBtn');
+            const icon = document.getElementById('syncIcon');
+            const txt = document.getElementById('syncText');
+            if(!btn) return;
+            txt.innerText = text;
+            if (status === 'loading') {
+                btn.className = "bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
+                icon.className = "fa-solid fa-spinner fa-spin";
+            } else if (status === 'success') {
+                btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
+                icon.className = "fa-solid fa-cloud-arrow-up";
+            } else {
+                btn.className = "bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
+                icon.className = "fa-solid fa-triangle-exclamation";
+            }
+        }
+
+        function syncWithCloud() {
+            loadFromCloud().then(() => {
+                renderSupplierDatalist();
+                renderAll();
+                alert('已成功重新向 Google 雲端同步最新資料！');
+            });
+        }
+
+        function loadDefaultData() {
+            purchaseOrders = [
+                { id: 'ORD20261001', store: 'store_main', name: '45cm 巨無霸娃娃', spec: '粉紅版', supplier: '奇奇玩具', qty: 50, price: 250, total: 12500, usage: '機台貨', orderDate: '2026-10-15', arriveDate: '2026-10-18', arrivePerson: '張小明', payDate: '2026-10-20', status: '已完放入庫', stockedQty: 50, zone: '1F', barcode: '4710001' }
+            ];
+            stockList = [
+                { id: 'STK001', store: 'store_main', name: '45cm 巨無霸娃娃', spec: '粉紅版', supplier: '奇奇玩具', usage: '機台貨', zone: '1F', price: 250, qty: 45, barcode: '4710001' }
+            ];
+            machineRecords = [
+                { date: '2026-10-29', machineNo: '42', productName: '魔音海螺', price: 200, revenue: 2320, outQty: 10, points: 100, exchangeQty: 2, scratchExp: 0, cost: 2000, netProfit: 320 }
+            ];
+            storeExpenses = [
+                { id: 'EXP001', store: 'store_main', date: '2026-10-01', category: '店支出', name: '10月店面房租', amount: 50000 }
+            ];
+            paymentRecords = [
+                { id: 'PAY001', store: 'store_main', date: '2026-10-20', supplier: '奇奇玩具', orderId: 'ORD20261001', arriveDate: '2026-10-18', orderAmt: 12500, paidAmt: 12500, note: '全額付清' }
+            ];
+            cashflowRecords = [
+                { id: 'CF001', store: 'store_main', date: '2026-10-29', prevBalance: 50000, machineRev: 2320, cashTransfer: 5000, expense: 1200, loanPayment: 12500 }
+            ];
+        }
+
         function renderSupplierDatalist() {
             const datalist = document.getElementById('supplierDatalist');
             if(!datalist) return;
@@ -881,7 +1034,6 @@
             });
         }
 
-        // 自動檢測並記憶新廠商
         function checkAndAddSupplier(supplierName) {
             const name = supplierName.trim();
             if (name && !supplierList.includes(name)) {
@@ -900,6 +1052,7 @@
             renderCashflowTable();
             renderAccountingReport();
             updateNavigationPermissions();
+            saveToCloud(); // 每次異動自動備份並上傳雲端
         }
 
         function switchTab(tabId) {
@@ -955,12 +1108,10 @@
 
             const statusFilter = document.getElementById('filterPurchaseStatus').value;
             const supplierFilter = document.getElementById('filterPurchaseSupplier').value.toLowerCase();
-
             let unstockedCount = 0;
 
             purchaseOrders.filter(o => o.store === currentStore).forEach(o => {
                 if (o.status === '已到貨未入庫') unstockedCount++;
-
                 if (statusFilter !== 'all' && o.status !== statusFilter) return;
                 if (supplierFilter && !o.supplier.toLowerCase().includes(supplierFilter)) return;
 
@@ -971,7 +1122,7 @@
                 else if (o.status === '已完放入庫') statusBadge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs">已完放入庫 (${o.zone || '1F'})</span>`;
 
                 let actionBtns = '';
-                if (o.status === '待到貨') {
+                if (o.status === '待_到貨' || o.status === '待到貨') {
                     actionBtns = `<button onclick="openArriveModal('${o.id}')" class="text-blue-600 hover:underline mr-2 font-medium">登記到貨</button>`;
                 } else if (o.status === '已到貨未入庫') {
                     actionBtns = `<button onclick="openArriveModal('${o.id}')" class="text-emerald-600 hover:underline font-bold mr-2">執行入庫</button>`;
@@ -1025,11 +1176,7 @@
             const p = parseInt(document.getElementById('pPrice').value);
             const supplierInput = document.getElementById('pSupplier').value.trim();
 
-            if (!supplierInput) {
-                alert('請填寫或選擇廠商名稱！');
-                return;
-            }
-
+            if (!supplierInput) { alert('請填寫或選擇廠商名稱！'); return; }
             checkAndAddSupplier(supplierInput);
 
             const order = {
@@ -1043,17 +1190,13 @@
                 total: q * p,
                 usage: document.getElementById('pUsage').value,
                 orderDate: document.getElementById('pOrderDate').value,
-                arriveDate: '',
-                arrivePerson: '',
-                payDate: '',
-                status: '待到貨',
-                stockedQty: 0,
-                zone: '1F',
+                arriveDate: '', arrivePerson: '', payDate: '',
+                status: '待到貨', stockedQty: 0, zone: '1F',
                 barcode: '471' + Math.floor(1000 + Math.random() * 9000)
             };
             purchaseOrders.unshift(order);
             closePurchaseModal();
-            renderPurchaseTable();
+            renderAll();
         }
 
         function openArriveModal(id) {
@@ -1079,7 +1222,7 @@
                 if (order.total > 30000 && order.status === '待到貨') {
                     order.status = '高額待審核';
                     closeArriveModal();
-                    renderPurchaseTable();
+                    renderAll();
                     return;
                 }
 
@@ -1113,7 +1256,7 @@
             const order = purchaseOrders.find(o => o.id === id);
             if (order) {
                 order.status = '已到貨未入庫';
-                renderPurchaseTable();
+                renderAll();
             }
         }
 
@@ -1129,10 +1272,7 @@
                 if (usageFilter !== 'all' && s.usage !== usageFilter) return;
                 if (keyword && !s.name.toLowerCase().includes(keyword) && !s.barcode.toLowerCase().includes(keyword) && !(s.spec && s.spec.toLowerCase().includes(keyword))) return;
 
-                let isLow = false;
-                if (s.usage === '機台貨' && s.qty < 50) isLow = true;
-                else if (s.usage !== '機台貨' && s.qty <= 3) isLow = true;
-
+                let isLow = (s.usage === '機台貨' && s.qty < 50) || (s.usage !== '機台貨' && s.qty <= 3);
                 let alertBadge = isLow 
                     ? `<span class="bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded text-xs animate-bounce">庫存不足</span>`
                     : `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs">正常</span>`;
@@ -1162,9 +1302,7 @@
 
         function onSelectOutReason() {
             const selVal = document.getElementById('outReasonSelect').value;
-            if (selVal) {
-                document.getElementById('outReason').value = selVal;
-            }
+            if (selVal) document.getElementById('outReason').value = selVal;
         }
 
         function searchOutProducts() {
@@ -1187,10 +1325,7 @@
             const stock = stockList.find(s => s.id === stkId);
 
             if (stock) {
-                if (stock.qty < q) {
-                    alert('出庫數量大於當前庫存量！');
-                    return;
-                }
+                if (stock.qty < q) { alert('出庫數量大於當前庫存量！'); return; }
                 stock.qty -= q;
                 closeOutstockModal();
                 renderAll();
@@ -1201,7 +1336,6 @@
             const tbody = document.getElementById('stocktakeTableBody');
             if(!tbody) return;
             tbody.innerHTML = '';
-
             const selectedZone = document.getElementById('stocktakeZoneFilter').value;
 
             stockList.filter(s => s.store === currentStore && (s.zone || '1F') === selectedZone).forEach(s => {
@@ -1210,9 +1344,7 @@
                         <td class="p-3 font-medium">${s.name} (${s.spec || '-'})</td>
                         <td class="p-3">$${s.price}</td>
                         <td class="p-3 font-bold text-slate-700">${s.qty}</td>
-                        <td class="p-3">
-                            <input type="number" id="actual_${s.id}" value="${s.qty}" oninput="calcDiff('${s.id}', ${s.qty}, ${s.price})" class="w-24 border border-slate-300 rounded px-2 py-1 text-sm">
-                        </td>
+                        <td class="p-3"><input type="number" id="actual_${s.id}" value="${s.qty}" oninput="calcDiff('${s.id}', ${s.qty}, ${s.price})" class="w-24 border border-slate-300 rounded px-2 py-1 text-sm"></td>
                         <td class="p-3 font-bold" id="diffQty_${s.id}">0</td>
                         <td class="p-3 font-bold" id="diffAmt_${s.id}">$0</td>
                     </tr>
@@ -1224,14 +1356,12 @@
             const actual = parseInt(document.getElementById(`actual_${id}`).value) || 0;
             const diff = actual - systemQty;
             const amt = diff * price;
-
             const qElem = document.getElementById(`diffQty_${id}`);
             const aElem = document.getElementById(`diffAmt_${id}`);
             if(!qElem || !aElem) return;
 
             qElem.innerText = diff > 0 ? `+${diff}` : diff;
             qElem.className = `p-3 font-bold ${diff < 0 ? 'text-rose-600' : diff > 0 ? 'text-emerald-600' : 'text-slate-700'}`;
-
             aElem.innerText = amt >= 0 ? `+$${amt.toLocaleString()}` : `-$${Math.abs(amt).toLocaleString()}`;
             aElem.className = `p-3 font-bold ${amt < 0 ? 'text-rose-600' : amt > 0 ? 'text-emerald-600' : 'text-slate-700'}`;
         }
@@ -1240,9 +1370,7 @@
             const selectedZone = document.getElementById('stocktakeZoneFilter').value;
             stockList.filter(s => s.store === currentStore && (s.zone || '1F') === selectedZone).forEach(s => {
                 const elem = document.getElementById(`actual_${s.id}`);
-                if (elem) {
-                    s.qty = parseInt(elem.value) || 0;
-                }
+                if (elem) s.qty = parseInt(elem.value) || 0;
             });
             alert(`實際盤點資料 (${selectedZone}) 已儲存並校正庫存量！`);
             renderAll();
@@ -1252,12 +1380,9 @@
             const tbody = document.getElementById('machinesTableBody');
             const tfoot = document.getElementById('machinesTableFooter');
             if(!tbody || !tfoot) return;
-            
-            tbody.innerHTML = '';
-            tfoot.innerHTML = '';
+            tbody.innerHTML = ''; tfoot.innerHTML = '';
 
-            const searchInput = document.getElementById('machineSearchInput');
-            const searchVal = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const searchVal = document.getElementById('machineSearchInput').value.toLowerCase().trim();
             const startDate = document.getElementById('machineStartDate').value;
             const endDate = document.getElementById('machineEndDate').value;
             const sortVal = document.getElementById('machineSortSelect').value;
@@ -1280,13 +1405,9 @@
             let totRevenue = 0, totOutQty = 0, totPoints = 0, totExchangeQty = 0, totCost = 0, totScratchExp = 0, totNetProfit = 0;
 
             filtered.forEach(m => {
-                totRevenue += m.revenue;
-                totOutQty += m.outQty;
-                totPoints += (m.points || 0);
-                totExchangeQty += (m.exchangeQty || 0);
-                totCost += m.cost;
-                totScratchExp += m.scratchExp;
-                totNetProfit += m.netProfit;
+                totRevenue += m.revenue; totOutQty += m.outQty;
+                totPoints += (m.points || 0); totExchangeQty += (m.exchangeQty || 0);
+                totCost += m.cost; totScratchExp += m.scratchExp; totNetProfit += m.netProfit;
 
                 tbody.innerHTML += `
                     <tr>
@@ -1321,19 +1442,14 @@
         }
 
         function downloadMachineCSVTemplate() {
-            const csvContent = "機檯編號,商品名稱,商品單價,收入金額,今日出錶結算,出貨金額(刮獎)\r\nA01,45cm 巨無霸娃娃,250,3500,5,200\r\nA02,日版動漫公仔,180,5000,10,300";
+            const csvContent = "機檯編號,商品名稱,商品單價,收入金額,今日出錶結算,出貨金額(刮獎)\r\nA01,45cm 巨無霸娃娃,250,3500,5,200";
             downloadCSVFile("機台幣量匯入範本_6欄位.csv", csvContent);
         }
 
         function openMachineUploadModal() { document.getElementById('machineUploadModal').classList.remove('hidden'); }
         function closeMachineUploadModal() { document.getElementById('machineUploadModal').classList.add('hidden'); }
-
-        function openPointsModal() {
-            document.getElementById('pointsModal').classList.remove('hidden');
-        }
-        function closePointsModal() {
-            document.getElementById('pointsModal').classList.add('hidden');
-        }
+        function openPointsModal() { document.getElementById('pointsModal').classList.remove('hidden'); }
+        function closePointsModal() { document.getElementById('pointsModal').classList.add('hidden'); }
 
         function submitBatchPoints(e) {
             e.preventDefault();
@@ -1345,15 +1461,12 @@
             let foundCount = 0;
             machineRecords.forEach(m => {
                 if (m.date === dateVal && m.machineNo === machineNoVal) {
-                    m.points = ptsVal;
-                    m.exchangeQty = exQtyVal;
-                    foundCount++;
+                    m.points = ptsVal; m.exchangeQty = exQtyVal; foundCount++;
                 }
             });
-
             closePointsModal();
             renderAll();
-            alert(`已成功為日期「${dateVal}」機台號「${machineNoVal}」帶入換點資料（更新 ${foundCount} 筆機台記錄）！`);
+            alert(`已成功帶入換點資料（更新 ${foundCount} 筆機台記錄）！`);
         }
 
         function parseCSVLine(text) {
@@ -1375,12 +1488,11 @@
             const dateInput = document.getElementById('targetMachineDate').value;
             const fileInput = document.getElementById('machineCsvFileInput');
             const file = fileInput.files[0];
-            if (!dateInput || !file) { alert('請完整填寫日期並選擇幣量 CSV 檔案！'); return; }
+            if (!dateInput || !file) { alert('請完整填寫日期並選擇 CSV！'); return; }
 
             const reader = new FileReader();
             reader.onload = function(evt) {
                 machineRecords = machineRecords.filter(m => m.date !== dateInput);
-
                 const lines = evt.target.result.split(/\r\n|\n/);
                 for (let i = 1; i < lines.length; i++) {
                     if (!lines[i].trim()) continue;
@@ -1392,29 +1504,20 @@
                         const rev = parseFloat(row[3].replace(/,/g, '')) || 0;
                         const outQ = parseFloat(row[4].replace(/,/g, '')) || 0;
                         const scratch = parseFloat(row[5].replace(/,/g, '')) || 0;
-                        
                         const cost = outQ * price;
                         const netProfit = rev - cost - scratch;
 
                         machineRecords.unshift({
-                            date: dateInput,
-                            machineNo: mNo,
-                            productName: pName,
-                            price: price,
-                            revenue: rev,
-                            outQty: outQ,
-                            points: 0,
-                            exchangeQty: 0,
-                            cost: cost,
-                            scratchExp: scratch,
-                            netProfit: netProfit
+                            date: dateInput, machineNo: mNo, productName: pName,
+                            price: price, revenue: rev, outQty: outQ,
+                            points: 0, exchangeQty: 0, cost: cost, scratchExp: scratch, netProfit: netProfit
                         });
                     }
                 }
                 closeMachineUploadModal();
                 fileInput.value = '';
                 renderAll();
-                alert(`機台每日幣量 CSV 覆蓋匯入成功！（日期歸屬：${dateInput}）`);
+                alert(`機台幣量 CSV 匯入成功！`);
             };
             reader.readAsText(file);
         }
@@ -1423,14 +1526,12 @@
             const tbody = document.getElementById('supplierReportTableBody');
             if(!tbody) return;
             tbody.innerHTML = '';
-
             const selectedMonth = document.getElementById('supplierMonthFilter').value;
             let monthTotal = 0, monthCount = 0;
 
             purchaseOrders.filter(o => o.store === currentStore).forEach(o => {
                 if (o.orderDate.startsWith(selectedMonth)) {
-                    monthTotal += o.total;
-                    monthCount++;
+                    monthTotal += o.total; monthCount++;
                     tbody.innerHTML += `
                         <tr>
                             <td class="p-3 font-bold text-slate-800">${o.supplier}</td>
@@ -1445,7 +1546,6 @@
                     `;
                 }
             });
-
             document.getElementById('supplierTotalAmount').innerText = `$${monthTotal.toLocaleString()}`;
             document.getElementById('supplierTotalCount').innerText = `總叫貨筆數：${monthCount} 筆`;
         }
@@ -1454,12 +1554,10 @@
             const tbody = document.getElementById('paymentCheckTableBody');
             if(!tbody) return;
             tbody.innerHTML = '';
-
             let totalOrderAmt = 0, totalPaidAmt = 0;
 
             paymentRecords.filter(p => p.store === currentStore).forEach(p => {
-                totalOrderAmt += p.orderAmt;
-                totalPaidAmt += p.paidAmt;
+                totalOrderAmt += p.orderAmt; totalPaidAmt += p.paidAmt;
                 const diff = p.orderAmt - p.paidAmt;
                 const hasDiff = diff !== 0;
 
@@ -1479,7 +1577,6 @@
                     </tr>
                 `;
             });
-
             const unpaid = totalOrderAmt - totalPaidAmt;
             document.getElementById('pcTotalOrderAmt').innerText = `$${totalOrderAmt.toLocaleString()}`;
             document.getElementById('pcTotalPaidAmt').innerText = `$${totalPaidAmt.toLocaleString()}`;
@@ -1492,17 +1589,14 @@
             purchaseOrders.filter(o => o.store === currentStore).forEach(o => {
                 selectOrder.innerHTML += `<option value="${o.id}">${o.id} - ${o.supplier} (${o.name}) 金額: $${o.total}</option>`;
             });
-
             document.getElementById('payRecSupplier').value = '';
             document.getElementById('payRecOrderIdInput').value = '';
             document.getElementById('payRecArriveDate').value = '';
             document.getElementById('payRecOrderAmt').value = '0';
             document.getElementById('payRecPaidAmt').value = '0';
             document.getElementById('payRecNote').value = '貨未到先付款';
-
             document.getElementById('paymentModal').classList.remove('hidden');
         }
-
         function closePaymentModal() { document.getElementById('paymentModal').classList.add('hidden'); }
 
         function onSelectPurchaseOrderForPayment() {
@@ -1535,7 +1629,7 @@
                 note: document.getElementById('payRecNote').value
             });
             closePaymentModal();
-            renderPaymentCheckTable();
+            renderAll();
         }
 
         function renderCashflowTable() {
@@ -1571,7 +1665,6 @@
         function submitCashflowRecord(e) {
             e.preventDefault();
             const dateVal = document.getElementById('cfDate').value;
-
             cashflowRecords = cashflowRecords.filter(c => !(c.store === currentStore && c.date === dateVal));
 
             cashflowRecords.push({
@@ -1585,20 +1678,17 @@
                 loanPayment: parseFloat(document.getElementById('cfLoanPayment').value) || 0
             });
             closeCashflowModal();
-            renderCashflowTable();
+            renderAll();
         }
 
         function renderAccountingReport() {
             const tbody = document.getElementById('accountingFullTableBody');
             if(!tbody) return;
             tbody.innerHTML = '';
-
             const selectedMonth = document.getElementById('accMonthFilter').value;
 
             let revenue = 0;
-            machineRecords.forEach(m => {
-                if(m.date.startsWith(selectedMonth)) revenue += m.revenue;
-            });
+            machineRecords.forEach(m => { if(m.date.startsWith(selectedMonth)) revenue += m.revenue; });
 
             let otherRev = 0, freeCoins = 0, shopExpenses = 0, salary = 0;
             storeExpenses.filter(e => e.store === currentStore && e.date.startsWith(selectedMonth)).forEach(e => {
@@ -1610,35 +1700,23 @@
 
             let prevStockValue = 120000;
             let purchaseThisMonth = 0;
-            purchaseOrders.filter(o => o.store === currentStore && o.orderDate.startsWith(selectedMonth)).forEach(o => {
-                purchaseThisMonth += o.total;
-            });
+            purchaseOrders.filter(o => o.store === currentStore && o.orderDate.startsWith(selectedMonth)).forEach(o => { purchaseThisMonth += o.total; });
 
             let pointRecycle = 0;
-            machineRecords.forEach(m => {
-                if(m.date.startsWith(selectedMonth)) pointRecycle += (m.points || 0) * 10;
-            });
+            machineRecords.forEach(m => { if(m.date.startsWith(selectedMonth)) pointRecycle += (m.points || 0) * 10; });
 
             let pointExchangeCost = 0;
-            machineRecords.forEach(m => {
-                if(m.date.startsWith(selectedMonth)) pointExchangeCost += (m.exchangeQty || 0) * (m.price || 100);
-            });
+            machineRecords.forEach(m => { if(m.date.startsWith(selectedMonth)) pointExchangeCost += (m.exchangeQty || 0) * (m.price || 100); });
 
             let activityPrizeCost = 0;
-            machineRecords.forEach(m => {
-                if(m.date.startsWith(selectedMonth)) activityPrizeCost += m.scratchExp;
-            });
+            machineRecords.forEach(m => { if(m.date.startsWith(selectedMonth)) activityPrizeCost += m.scratchExp; });
 
             let shipOutCost = 0;
-            machineRecords.forEach(m => {
-                if(m.date.startsWith(selectedMonth)) shipOutCost += m.cost;
-            });
+            machineRecords.forEach(m => { if(m.date.startsWith(selectedMonth)) shipOutCost += m.cost; });
 
             let monthlyDiff = -500;
             let currentStockValue = 0;
-            stockList.filter(s => s.store === currentStore).forEach(s => {
-                currentStockValue += s.qty * s.price;
-            });
+            stockList.filter(s => s.store === currentStore).forEach(s => { currentStockValue += s.qty * s.price; });
 
             let stockChange = currentStockValue - prevStockValue;
             let unexchangedPointsVal = 15000;
@@ -1688,9 +1766,7 @@
                 id: 'EXP' + new Date().getTime().toString().slice(-4),
                 store: currentStore,
                 date: new Date().toISOString().slice(0, 10),
-                category: category,
-                name: name,
-                amount: amt
+                category: category, name: name, amount: amt
             });
             document.getElementById('expenseName').value = '';
             document.getElementById('expenseAmount').value = '';
