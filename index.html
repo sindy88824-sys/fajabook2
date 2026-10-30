@@ -974,26 +974,24 @@ async function saveToCloud() {
                 setSyncStatus('error', '雲端連線失敗(離線模式)');
             }
         }
-
-        // 🔗 儲存資料至 Google 雲端
-        function setSyncStatus(status, text) {
-            const btn = document.getElementById('syncBtn');
-            const icon = document.getElementById('syncIcon');
-            const txt = document.getElementById('syncText');
-            if(!btn) return;
-            txt.innerText = text;
-            if (status === 'loading') {
-                btn.className = "bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
-                icon.className = "fa-solid fa-spinner fa-spin";
-            } else if (status === 'success') {
-                btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
-                icon.className = "fa-solid fa-cloud-arrow-up";
-            } else {
-                btn.className = "bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
-                icon.className = "fa-solid fa-triangle-exclamation";
-            }
-        }
-
+// 儲存資料至 Google 雲端
+function setSyncStatus(status, text) {
+    const btn = document.getElementById('syncBtn');
+    const icon = document.getElementById('syncIcon');
+    const txt = document.getElementById('syncText');
+    if(!btn) return;
+    txt.innerText = text;
+    if (status === 'loading') {
+        btn.className = "bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
+        icon.className = "fa-solid fa-spinner fa-spin";
+    } else if (status === 'success') {
+        btn.className = "bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
+        icon.className = "fa-solid fa-cloud-arrow-up";
+    } else {
+        btn.className = "bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-2 transition shadow-sm";
+        icon.className = "fa-solid fa-triangle-exclamation";
+    }
+}
         function syncWithCloud() {
             loadFromCloud().then(() => {
                 renderSupplierDatalist();
