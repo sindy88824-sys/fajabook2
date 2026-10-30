@@ -824,6 +824,21 @@
     </div>
 
     <script>
+// 🛡️ 初始化同步狀態介面與按鈕
+document.addEventListener("DOMContentLoaded", () => {
+    let syncDiv = document.getElementById("syncStatus");
+    if (!syncDiv) {
+        syncDiv = document.createElement("div");
+        syncDiv.id = "syncStatus";
+        syncDiv.className = "text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 cursor-pointer";
+        syncDiv.innerHTML = "<span>☁️ 雲端同步正常</span>";
+        syncDiv.onclick = () => saveToCloud(); // 點擊按鈕即可手動觸發同步
+        
+        // 嘗試塞進網頁頂端導覽列或頁面最上方
+        const headerTarget = document.querySelector("header") || document.body;
+        headerTarget.appendChild(syncDiv);
+    }
+});
         // 🛡️ 強制確保右上角有同步狀態顯示
 document.addEventListener("DOMContentLoaded", () => {
     let syncDiv = document.getElementById("syncStatus");
