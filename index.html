@@ -823,7 +823,11 @@
         </div>
     </div>
 
-    <script>// 🔒 多角色帳號密碼登入驗證設定（含店長、倉管、採購、櫃台）
+    <script>// 檢查是否已經登入過
+if (sessionStorage.getItem("isLoggedIn") === "true") {
+    setTimeout(lockDownPermissions, 300);
+    return;
+}// 🔒 多角色帳號密碼登入驗證設定（含店長、倉管、採購、櫃台）
 const ACCOUNTS = {
     "$$$": { pass: "0000", role: "boss", name: "店長" },
     "CHI": { pass: "8888", role: "store main", name: "倉管" },
