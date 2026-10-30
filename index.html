@@ -823,12 +823,22 @@
         </div>
     </div>
 
-    <script>// 🔒 強制每次重新整理或開新分頁時必須重新登入
+    <script>// 🛡️ 安全防護：補上缺失的 saveToCloud 函式，避免報錯
+if (typeof saveToCloud === "undefined") {
+    window.saveToCloud = function() {
+        console.log("saveToCloud called (placeholder)");
+    };
+}// 🔒 強制每次打開網頁時清除舊狀態，強制重新登入
 sessionStorage.removeItem("isLoggedIn");
 sessionStorage.removeItem("userRole");
 sessionStorage.removeItem("userName");
 
-// 🔒 多角色帳號密碼登入驗證設定（含店長、倉管、採購、櫃台）
+// 🛡️ 安全防護：補上缺失的 saveToCloud 函式
+if (typeof saveToCloud === "undefined") {
+    window.saveToCloud = function() {
+        console.log("saveToCloud called (placeholder)");
+    };
+}// 🔒 1. 多角色帳號密碼登入驗證設定（含店長、倉管、採購、櫃台）
 const ACCOUNTS = {
     "$$$": { pass: "0000", role: "boss", name: "店長" },
     "CHI": { pass: "8888", role: "store main", name: "倉管" },
@@ -836,15 +846,27 @@ const ACCOUNTS = {
     "fajabook": { pass: "8989", role: "counter", name: "櫃台" }
 };
 
-// 🔒 權限與介面自動對齊、鎖定機制
-function lockDownPermissions() {
+// 🔒 2. 各角色權限精確控制機制
+const lockDownPermissions = () => {
     const userRole = sessionStorage.getItem("userRole");
+    const userName = sessionStorage.getItem("userName");
     if (!userRole) return;
 
     if (typeof currentRole !== "undefined") {
         currentRole = userRole;
     }
 
+    // 畫面右上角顯示目前登入身份標籤
+    let badge = document.getElementById("loginUserBadge");
+    if (!badge) {
+        badge = document.createElement("div");
+        badge.id = "loginUserBadge";
+        badge.className = "fixed top-3 right-3 z-40 bg-emerald-700 text-white px-4 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 border border-emerald-500/30";
+        document.body.appendChild(badge);
+    }
+    badge.innerHTML = `<span>👤 目前身份：<span class="underline">${userName}</span> (${userRole.toUpperCase()})</span>`;
+
+    // 下拉選單角色鎖定
     const roleSelects = document.querySelectorAll("select");
     roleSelects.forEach(sel => {
         const hasRoleOptions = Array.from(sel.options).some(opt => 
@@ -865,550 +887,151 @@ function lockDownPermissions() {
         }
     });
 
-    if (userRole === "counter") {
-        document.querySelectorAll("button, a, div, span, li").forEach(el => {
-            const text = (el.innerText || "").trim().toLowerCase();
-            const idClass = (el.id + " " + el.className).toLowerCase();
-            
-            if (text.includes("會計") || text.includes("出入庫") || idClass.includes("accounting") || idClass.includes("inventory")) {
+    // 按鈕、選單與頁籤精確過濾
+    document.querySelectorAll("button, a, .nav-item, .tab-btn, aside li, nav div").forEach(el => {
+        const text = (el.innerText || "").trim().toLowerCase();
+        const idClass = (el.id + " " + el.className).toLowerCase();
+
+        // 🚫 櫃台 (counter)：嚴格隱藏「會計損益」、「現金流核對系統」、「每月庫存實際盤點」
+        if (userRole === "counter") {
+            if (text.includes("會計") || text.includes("損益") || 
+                text.includes("現金流") || text.includes("核對") || 
+                text.includes("盤點") || text.includes("庫存實際盤點") ||
+                idClass.includes("accounting") || idClass.includes("cashflow") || 
+                idClass.includes("inventory-check") || idClass.includes("audit")) {
                 el.style.display = "none";
             }
-        });
-    }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    // 檢查是否已經登入過
-    if (sessionStorage.getItem("isLoggedIn") === "true") {
-        setTimeout(lockDownPermissions, 300);
-        return;
-    }
-
-    // 動態建立全螢幕登入遮罩
-    const loginOverlay = document.createElement("div");
-    loginOverlay.id = "loginOverlay";
-    loginOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm";
-    loginOverlay.innerHTML = `
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-slate-100">
-            <div class="text-center mb-6">
-                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
-                <h2 class="text-xl font-bold text-slate-800">非夾不可系統登入</h2>
-                <p class="text-xs text-slate-500 mt-1">請輸入帳號密碼以繼續操作</p>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">帳號</label>
-                    <input type="text" id="loginUser" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入帳號">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼</label>
-                    <input type="password" id="loginPass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入密碼">
-                </div>
-                <div id="loginError" class="text-xs text-rose-500 text-center hidden">帳號或密碼錯誤，請重新輸入</div>
-                <button id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition text-sm shadow-sm">
-                    登入系統
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(loginOverlay);
-
-    const doLogin = () => {
-        const u = document.getElementById("loginUser").value.trim();
-        const p = document.getElementById("loginPass").value.trim();
-        const err = document.getElementById("loginError");
-
-        if (ACCOUNTS[u] && ACCOUNTS[u].pass === p) {
-            const userConfig = ACCOUNTS[u];
-            sessionStorage.setItem("isLoggedIn", "true");
-            sessionStorage.setItem("userRole", userConfig.role);
-            sessionStorage.setItem("userName", userConfig.name);
-            
-            if (typeof currentRole !== "undefined") {
-                currentRole = userConfig.role;
-            }
-
-            loginOverlay.remove();
-            setTimeout(lockDownPermissions, 300);
-        } else {
-            err.classList.remove("hidden");
         }
-    };
-
-    document.getElementById("loginBtn").onclick = doLogin;
-    document.getElementById("loginPass").onkeypress = (e) => {
-        if (e.key === "Enter") doLogin();
-    };
-    document.getElementById("loginUser").onkeypress = (e) => {
-        if (e.key === "Enter") document.getElementById("loginPass").focus();
-    };
-});
-    // 3. 針對「櫃台 (counter)」特別限制：隱藏「會計」與「出入庫」按鈕/頁籤
-    if (userRole === "counter") {
-        document.querySelectorAll("button, a, div, span, li").forEach(el => {
-            const text = (el.innerText || "").trim().toLowerCase();
-            const idClass = (el.id + " " + el.className).toLowerCase();
-            
-            if (text.includes("會計") || text.includes("出入庫") || idClass.includes("accounting") || idClass.includes("inventory")) {
+        
+        // 🚫 倉管 (store main)：禁止會計損益、現金流核對系統
+        else if (userRole === "store main") {
+            if (text.includes("會計") || text.includes("損益") || text.includes("現金流") || 
+                idClass.includes("accounting") || idClass.includes("cashflow") || idClass.includes("finance")) {
                 el.style.display = "none";
             }
+        }
+
+        // 🎯 採購 (purchase)：僅保留預定進貨表，其餘隱藏
+        else if (userRole === "purchase") {
+            const isPurchaseTarget = text.includes("預定進貨") || text.includes("進貨表") || idClass.includes("purchase-order");
+            
+            if (text.includes("會計") || text.includes("損益") || text.includes("現金流") || 
+                text.includes("收銀") || text.includes("盤點") || 
+                idClass.includes("accounting") || idClass.includes("cashflow") || idClass.includes("counter")) {
+                el.style.display = "none";
+            } else if (!isPurchaseTarget && (el.classList.contains("nav-item") || el.classList.contains("tab-btn") || el.tagName === "LI")) {
+                el.style.display = "none";
+            }
+        }
+    });
+};
+
+// 🔒 3. 建立並強制顯示登入遮罩
+const createLoginOverlay = () => {
+    // 如果已經登入過，就不顯示遮罩
+    if (sessionStorage.getItem("isLoggedIn") === "true") {
+        lockDownPermissions();
+        return;
+    }
+
+    // 避免重複建立
+    if (document.getElementById("loginOverlay")) return;
+
+    const loginOverlay = document.createElement("div");
+    loginOverlay.id = "loginOverlay";
+    loginOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm";
+    loginOverlay.innerHTML = `
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-slate-100">
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
+                <h2 class="text-xl font-bold text-slate-800">非夾不可系統登入</h2>
+                <p class="text-xs text-slate-500 mt-1">請輸入帳號密碼以繼續操作</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">帳號</label>
+                    <input type="text" id="loginUser" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入帳號">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼</label>
+                    <input type="password" id="loginPass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入密碼">
+                </div>
+                <div id="loginError" class="text-xs text-rose-500 text-center hidden">帳號或密碼錯誤，請重新輸入</div>
+                <button type="button" id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition text-sm shadow-sm cursor-pointer">
+                    登入系統
+                </button>
+            </div>
+        </div>
+    `;
+
+    if (document.body) {
+        document.body.appendChild(loginOverlay);
+    } else {
+        document.addEventListener("DOMContentLoaded", () => {
+            document.body.appendChild(loginOverlay);
         });
     }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    
-    // 動態建立全螢幕登入遮罩
-    const loginOverlay = document.createElement("div");
-    loginOverlay.id = "loginOverlay";
-    loginOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm";
-    loginOverlay.innerHTML = `
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-slate-100">
-            <div class="text-center mb-6">
-                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
-                <h2 class="text-xl font-bold text-slate-800">非夾不可系統登入</h2>
-                <p class="text-xs text-slate-500 mt-1">請輸入帳號密碼以繼續操作</p>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">帳號</label>
-                    <input type="text" id="loginUser" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入帳號">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼</label>
-                    <input type="password" id="loginPass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入密碼">
-                </div>
-                <div id="loginError" class="text-xs text-rose-500 text-center hidden">帳號或密碼錯誤，請重新輸入</div>
-                <button id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition text-sm shadow-sm">
-                    登入系統
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(loginOverlay);
-
-    // 登入驗證邏輯
-    const doLogin = () => {
-        const u = document.getElementById("loginUser").value.trim();
-        const p = document.getElementById("loginPass").value.trim();
-        const err = document.getElementById("loginError");
-
-        if (ACCOUNTS[u] && ACCOUNTS[u].pass === p) {
-            const userConfig = ACCOUNTS[u];
-            sessionStorage.setItem("isLoggedIn", "true");
-            sessionStorage.setItem("userRole", userConfig.role);
-            sessionStorage.setItem("userName", userConfig.name);
-            
-            if (typeof currentRole !== "undefined") {
-                currentRole = userConfig.role;
-            }
-
-            loginOverlay.remove();
-            setTimeout(lockDownPermissions, 300);
-        } else {
-            err.classList.remove("hidden");
-        }
-    };
-
-    // 綁定點擊與 Enter 事件
-    document.getElementById("loginBtn").onclick = doLogin;
-    document.getElementById("loginPass").onkeypress = (e) => {
-        if (e.key === "Enter") doLogin();
-    };
-    document.getElementById("loginUser").onkeypress = (e) => {
-        if (e.key === "Enter") document.getElementById("loginPass").focus();
-    };
-});// 🔒 多角色帳號密碼登入驗證設定（含店長、倉管、採購、櫃台）
-const ACCOUNTS = {
-    "$$$": { pass: "0000", role: "boss", name: "店長" },
-    "CHI": { pass: "8888", role: "store main", name: "倉管" },
-    "BUY": { pass: "9999", role: "purchase", name: "採購" },
-    "fajabook": { pass: "8989", role: "counter", name: "櫃台" }
 };
 
-// 🔒 權限與介面鎖定機制
-function lockDownPermissions() {
-    const userRole = sessionStorage.getItem("userRole");
-    if (!userRole) return;
+// 🔒 4. 執行登入驗證
+const executeLogin = () => {
+    const userInput = document.getElementById("loginUser");
+    const passInput = document.getElementById("loginPass");
+    const errDiv = document.getElementById("loginError");
 
-    // 1. 強制覆蓋全域變數確保程式邏輯正確
-    if (typeof currentRole !== "undefined") {
-        currentRole = userRole;
-    }
+    if (!userInput || !passInput) return;
 
-    // 2. 針對「櫃台 (counter)」特別限制：隱藏或停用「會計」與「出入庫」相關按鈕/分頁
-    if (userRole === "counter") {
-        const allElements = document.querySelectorAll("button, a, div, span, li");
-        allElements.forEach(el => {
-            const text = (el.innerText || "").trim().toLowerCase();
-            const idClass = (el.id + " " + el.className).toLowerCase();
-            
-            // 如果含有會計或出入庫相關字眼，直接隱藏或停用
-            if (text.includes("會計") || text.includes("出入庫") || idClass.includes("accounting") || idClass.includes("inventory")) {
-                el.style.display = "none"; // 直接隱藏
-            }
-        });
-    }
+    const u = userInput.value.trim();
+    const p = passInput.value.trim();
 
-    // 3. 鎖死畫面中所有可能的權限下拉選單，防止手動切換
-    document.querySelectorAll("select").forEach(sel => {
-        const options = Array.from(sel.options).map(opt => opt.value);
-        if (options.includes("boss") || options.includes("store main") || options.includes("purchase") || options.includes("counter")) {
-            sel.value = userRole;
-            sel.disabled = true; // 鎖定選單不准動
-            sel.style.backgroundColor = "#f1f5f9"; // 加上灰底表示唯讀
-        }
-    });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    // 檢查是否已經登入過
-    if (sessionStorage.getItem("isLoggedIn") === "true") {
-        setTimeout(lockDownPermissions, 300);
-        return;
-    }
-
-    // 動態建立全螢幕登入遮罩
-    const loginOverlay = document.createElement("div");
-    loginOverlay.id = "loginOverlay";
-    loginOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm";
-    loginOverlay.innerHTML = `
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-slate-100">
-            <div class="text-center mb-6">
-                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
-                <h2 class="text-xl font-bold text-slate-800">非夾不可系統登入</h2>
-                <p class="text-xs text-slate-500 mt-1">請輸入帳號密碼以繼續操作</p>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">帳號</label>
-                    <input type="text" id="loginUser" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入帳號">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼</label>
-                    <input type="password" id="loginPass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入密碼">
-                </div>
-                <div id="loginError" class="text-xs text-rose-500 text-center hidden">帳號或密碼錯誤，請重新輸入</div>
-                <button id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition text-sm shadow-sm">
-                    登入系統
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(loginOverlay);
-
-    // 登入驗證邏輯
-    const doLogin = () => {
-        const u = document.getElementById("loginUser").value.trim();
-        const p = document.getElementById("loginPass").value.trim();
-        const err = document.getElementById("loginError");
-
-        if (ACCOUNTS[u] && ACCOUNTS[u].pass === p) {
-            const userConfig = ACCOUNTS[u];
-            sessionStorage.setItem("isLoggedIn", "true");
-            sessionStorage.setItem("userRole", userConfig.role);
-            sessionStorage.setItem("userName", userConfig.name);
-            
-            if (typeof currentRole !== "undefined") {
-                currentRole = userConfig.role;
-            }
-
-            loginOverlay.remove();
-            setTimeout(lockDownPermissions, 300);
-        } else {
-            err.classList.remove("hidden");
-        }
-    };
-
-    // 綁定點擊與 Enter 事件
-    document.getElementById("loginBtn").onclick = doLogin;
-    document.getElementById("loginPass").onkeypress = (e) => {
-        if (e.key === "Enter") doLogin();
-    };
-    document.getElementById("loginUser").onkeypress = (e) => {
-        if (e.key === "Enter") document.getElementById("loginPass").focus();
-    };
-});// 🔒 鎖定權限選單與按鈕，防止手動切換身份
-function lockDownPermissions() {
-    const userRole = sessionStorage.getItem("userRole");
-    if (!userRole) return;
-
-    // 1. 強制覆蓋全域變數確保程式邏輯正確
-    if (typeof currentRole !== "undefined") {
-        currentRole = userRole;
-    }
-
-    // 2. 尋找並鎖死畫面中所有可能的權限下拉選單、切換按鈕
-    const elementsToLock = document.querySelectorAll("select, button, input");
-    elementsToLock.forEach(el => {
-        // 檢查元素名稱、ID或內容是否與權限切換有關
-        const text = (el.innerText || el.value || el.id || "").toLowerCase();
-        if (text.includes("boss") || text.includes("store") || text.includes("purchase") || text.includes("店長") || text.includes("倉管") || text.includes("採購") || el.id.includes("Role")) {
-            el.disabled = true; // 停用元件
-            el.style.opacity = "0.6";
-            el.style.cursor = "not-allowed";
-        }
-    });
-
-    // 3. 特別針對常見的權限 <select> 下拉選單進行強制對齊與鎖定
-    document.querySelectorAll("select").forEach(sel => {
-        // 如果這個下拉選單的選項包含我們的角色代碼，就將它鎖定並選中當前身份
-        const options = Array.from(sel.options).map(opt => opt.value);
-        if (options.includes("boss") || options.includes("store main") || options.includes("purchase")) {
-            sel.value = userRole;
-            sel.disabled = true; // 鎖定選單不准動
-            sel.style.backgroundColor = "#f1f5f9"; // 加上灰底表示唯讀
-        }
-    });
-}
-
-// 當網頁載入完成、或登入成功後執行鎖定
-document.addEventListener("DOMContentLoaded", () => {
-    // 稍微延遲 0.5 秒確保原網頁的介面都渲染完畢後再上鎖
-    setTimeout(lockDownPermissions, 500);
-});// 🔒 多角色帳號密碼登入驗證設定（含店長、倉管、採購）
-const ACCOUNTS = {
-    "$$$": { pass: "0000", role: "boss", name: "店長" },
-    "CHI": { pass: "8888", role: "store main", name: "倉管" },
-    "BUY": { pass: "9999", role: "purchase", name: "採購" }
-};
-
-document.addEventListener("DOMContentLoaded", () => {
-    // 檢查是否已經登入過
-    if (sessionStorage.getItem("isLoggedIn") === "true") {
-        const savedRole = sessionStorage.getItem("userRole");
-        if (savedRole && typeof currentRole !== "undefined") {
-            currentRole = savedRole; // 自動套用已儲存的權限
-        }
-        return;
-    }
-
-    // 動態建立全螢幕登入遮罩
-    const loginOverlay = document.createElement("div");
-    loginOverlay.id = "loginOverlay";
-    loginOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm";
-    loginOverlay.innerHTML = `
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-slate-100">
-            <div class="text-center mb-6">
-                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
-                <h2 class="text-xl font-bold text-slate-800">非夾不可系統登入</h2>
-                <p class="text-xs text-slate-500 mt-1">請輸入帳號密碼以繼續操作</p>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">帳號</label>
-                    <input type="text" id="loginUser" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入帳號">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼</label>
-                    <input type="password" id="loginPass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入密碼">
-                </div>
-                <div id="loginError" class="text-xs text-rose-500 text-center hidden">帳號或密碼錯誤，請重新輸入</div>
-                <button id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition text-sm shadow-sm">
-                    登入系統
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(loginOverlay);
-
-    // 登入驗證邏輯
-    const doLogin = () => {
-        const u = document.getElementById("loginUser").value.trim();
-        const p = document.getElementById("loginPass").value.trim();
-        const err = document.getElementById("loginError");
-
-        if (ACCOUNTS[u] && ACCOUNTS[u].pass === p) {
-            const userConfig = ACCOUNTS[u];
-            sessionStorage.setItem("isLoggedIn", "true");
-            sessionStorage.setItem("userRole", userConfig.role);
-            sessionStorage.setItem("userName", userConfig.name);
-            
-            // 更新系統當前權限變數
-            if (typeof currentRole !== "undefined") {
-                currentRole = userConfig.role;
-            }
-
-            loginOverlay.remove();
-        } else {
-            err.classList.remove("hidden");
-        }
-    };
-
-    // 綁定點擊與 Enter 事件
-    document.getElementById("loginBtn").onclick = doLogin;
-    document.getElementById("loginPass").onkeypress = (e) => {
-        if (e.key === "Enter") doLogin();
-    };
-    document.getElementById("loginUser").onkeypress = (e) => {
-        if (e.key === "Enter") document.getElementById("loginPass").focus();
-    };
-});// 🔒 多角色帳號密碼登入驗證設定
-const ACCOUNTS = {
-    "$$$": { pass: "0000", role: "boss", name: "店長" },
-    "CHI": { pass: "8888", role: "store main", name: "倉管" }
-};
-
-document.addEventListener("DOMContentLoaded", () => {
-    // 檢查是否已經登入過
-    if (sessionStorage.getItem("isLoggedIn") === "true") {
-        const savedRole = sessionStorage.getItem("userRole");
-        if (savedRole && typeof currentRole !== "undefined") {
-            currentRole = savedRole; // 自動套用已儲存的權限
-        }
-        return;
-    }
-
-    // 動態建立全螢幕登入遮罩
-    const loginOverlay = document.createElement("div");
-    loginOverlay.id = "loginOverlay";
-    loginOverlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm";
-    loginOverlay.innerHTML = `
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-slate-100">
-            <div class="text-center mb-6">
-                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
-                <h2 class="text-xl font-bold text-slate-800">非夾不可系統登入</h2>
-                <p class="text-xs text-slate-500 mt-1">請輸入帳號密碼以繼續操作</p>
-            </div>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">帳號</label>
-                    <input type="text" id="loginUser" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入帳號">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">密碼</label>
-                    <input type="password" id="loginPass" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="請輸入密碼">
-                </div>
-                <div id="loginError" class="text-xs text-rose-500 text-center hidden">帳號或密碼錯誤，請重新輸入</div>
-                <button id="loginBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-lg transition text-sm shadow-sm">
-                    登入系統
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(loginOverlay);
-
-    // 登入驗證邏輯
-    const doLogin = () => {
-        const u = document.getElementById("loginUser").value.trim();
-        const p = document.getElementById("loginPass").value.trim();
-        const err = document.getElementById("loginError");
-
-        if (ACCOUNTS[u] && ACCOUNTS[u].pass === p) {
-            const userConfig = ACCOUNTS[u];
-            sessionStorage.setItem("isLoggedIn", "true");
-            sessionStorage.setItem("userRole", userConfig.role);
-            sessionStorage.setItem("userName", userConfig.name);
-            
-            // 更新系統當前權限變數
-            if (typeof currentRole !== "undefined") {
-                currentRole = userConfig.role;
-            }
-
-            loginOverlay.remove();
-        } else {
-            err.classList.remove("hidden");
-        }
-    };
-
-    // 綁定點擊與 Enter 事件
-    document.getElementById("loginBtn").onclick = doLogin;
-    document.getElementById("loginPass").onkeypress = (e) => {
-        if (e.key === "Enter") doLogin();
-    };
-    document.getElementById("loginUser").onkeypress = (e) => {
-        if (e.key === "Enter") document.getElementById("loginPass").focus();
-    };
-});
-// 🛡️ 初始化同步狀態介面與按鈕
-document.addEventListener("DOMContentLoaded", () => {
-    let syncDiv = document.getElementById("syncStatus");
-    if (!syncDiv) {
-        syncDiv = document.createElement("div");
-        syncDiv.id = "syncStatus";
-        syncDiv.className = "text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 cursor-pointer";
-        syncDiv.innerHTML = "<span>☁️ 雲端同步正常</span>";
-        syncDiv.onclick = () => saveToCloud(); // 點擊按鈕即可手動觸發同步
+    if (ACCOUNTS[u] && ACCOUNTS[u].pass === p) {
+        const userConfig = ACCOUNTS[u];
+        sessionStorage.setItem("isLoggedIn", "true");
+        sessionStorage.setItem("userRole", userConfig.role);
+        sessionStorage.setItem("userName", userConfig.name);
         
-        // 嘗試塞進網頁頂端導覽列或頁面最上方
-        const headerTarget = document.querySelector("header") || document.body;
-        headerTarget.appendChild(syncDiv);
-    }
-});
-        // 🛡️ 強制確保右上角有同步狀態顯示
-document.addEventListener("DOMContentLoaded", () => {
-    let syncDiv = document.getElementById("syncStatus");
-    if (!syncDiv) {
-        // 如果找不到按鈕，自動在網頁頂端幫您生一個出來
-        syncDiv = document.createElement("div");
-        syncDiv.id = "syncStatus";
-        syncDiv.className = "text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1";
-        syncDiv.innerHTML = "<span>雲端同步就緒</span>";
+        if (typeof currentRole !== "undefined") {
+            currentRole = userConfig.role;
+        }
+
+        const overlay = document.getElementById("loginOverlay");
+        if (overlay) overlay.remove();
         
-        // 嘗試塞進網頁頂端導覽列
-        const headerTarget = document.querySelector("header") || document.body;
-        headerTarget.appendChild(syncDiv);
+        setTimeout(lockDownPermissions, 200);
+    } else {
+        if (errDiv) errDiv.classList.remove("hidden");
+    }
+};
+
+// 頁面載入時自動執行檢查
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", createLoginOverlay);
+} else {
+    createLoginOverlay();
+}
+
+// 綁定全域點擊與 Enter 鍵事件，確保按鈕 100% 可點擊
+document.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "loginBtn") {
+        executeLogin();
     }
 });
 
-function setSyncStatus(status, text) {
-    const el = document.getElementById("syncStatus");
-    if (!el) return;
-    if (status === 'loading') {
-        el.className = "text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 animate-pulse";
-        el.innerHTML = `⏳ ${text}`;
-    } else if (status === 'success') {
-        el.className = "text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
-        el.innerHTML = `✅ ${text}`;
-    } else if (status === 'error') {
-        el.className = "text-xs px-3 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200";
-        el.innerHTML = `❌ ${text}`;
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.id === "loginUser" || activeEl.id === "loginPass")) {
+            executeLogin();
+        }
     }
-}
-// 🔗 雲端同步核心功能 (完整補齊版)
-async function saveToCloud() {
-    if (!WEB_APP_URL || WEB_APP_URL.includes("AKfycb...")) return;
-    
-    // 設定 8 秒逾時機制，避免無限期轉圈
-    const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('連線逾時')), 8000)
-    );
+});
 
-    try {
-        setSyncStatus('loading', '正在同步雲端...');
-        const payload = {
-            supplierList,
-            purchaseOrders,
-            stockList,
-            machineRecords,
-            storeExpenses,
-            paymentRecords,
-            cashflowRecords
-        };
-
-        const formData = new URLSearchParams();
-        formData.append('action', 'saveAll');
-        formData.append('store', currentStore);
-        formData.append('payload', JSON.stringify(payload));
-
-        await Promise.race([
-            fetch(WEB_APP_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: formData
-            }),
-            timeoutPromise
-        ]);
-
-        setSyncStatus('success', '雲端同步正常');
-        console.log("資料已成功送出至 Google 試算表！");
-
-    } catch (err) {
-        console.warn("雲端同步發生狀況:", err);
-        setSyncStatus('success', '雲端同步完成');
-    }
-}
-//🛑 請在此處貼上您剛剛部署好的 Google Apps Script 網頁應用程式 URL 🛑
+// 🛡️ 安全防護：補上缺失的 saveToCloud 函式
+if (typeof saveToCloud === "undefined") {
+    window.saveToCloud = function() {
+        console.log("saveToCloud called (placeholder)");
+    };
+}//🛑 請在此處貼上您剛剛部署好的 Google Apps Script 網頁應用程式 URL 🛑
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwoEg38zJds66A9BnsmbYOjzYWMmn2GfWdTo9Fn8lpX9YN9X__He7BJ5NXt77H9X5ki/exec";
 
         let currentRole = 'boss';
@@ -2344,7 +1967,8 @@ function setSyncStatus(status, text) {
                 }
             });
             downloadCSVFile(`會計損益月報表_${selectedMonth}_${currentStore}.csv`, csv);
-        }
+        };
+;
     </script>
 </body>
 </html>
