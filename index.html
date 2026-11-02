@@ -740,6 +740,7 @@
             renderAll();
         });
 
+        // 登入驗證函式
         function performLogin() {
             const roleSelectElem = document.getElementById("loginRoleSelect");
             const passwordInputElem = document.getElementById("loginPasswordInput");
@@ -1332,7 +1333,6 @@
                 <tr class="bg-blue-50 font-bold text-lg"><td class="p-3 border">4. 當月淨利損益總計 (=)</td><td class="p-3 border text-right text-blue-900">$${netProfit.toLocaleString()}</td><td class="p-3 border">總營業額 - 進貨成本 - 雜項支出</td></tr>
             `;
 
-            storeData.expenses.exports?.forEach?.(); // Safe
             storeData.expenses.forEach((e, idx) => {
                 html += `
                     <tr class="bg-slate-50 text-xs">
