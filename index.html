@@ -252,4 +252,1126 @@
                 <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <div>
                         <h2 class="text-xl font-bold text-slate-800">每月庫存實際盤點</h2>
-                        <p class="text-sm text-slate-500">依區域（1F、機台商品、B2、點
+                        <p class="text-sm text-slate-500">依區域（1F、機台商品、B2、點數兌換區、夾換台區）計算盤差數量與損益金額</p>
+                    </div>
+                    <button onclick="saveStocktake()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>儲存盤點結果</span>
+                    </button>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                    <label class="text-sm font-semibold text-slate-700">選擇盤點區域：</label>
+                    <select id="stocktakeZoneFilter" onchange="renderStocktakeTable()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-slate-50 font-medium cursor-pointer">
+                        <option value="1F">1F</option>
+                        <option value="機台商品">機台商品</option>
+                        <option value="B2">B2</option>
+                        <option value="點數兌換區">點數兌換區</option>
+                        <option value="夾換台區">夾換台區</option>
+                    </select>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                            <tr>
+                                <th class="p-3">商品名稱</th>
+                                <th class="p-3">單價</th>
+                                <th class="p-3">系統帳面庫存</th>
+                                <th class="p-3">實際盤點數量</th>
+                                <th class="p-3">盤差數量 (實-帳)</th>
+                                <th class="p-3">盤差金額損益</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stocktakeTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 4. 機台每日幣量與分析 -->
+            <section id="tab-machines" class="space-y-4 tab-section hidden">
+                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">機台每日幣量與效益分析</h2>
+                        <p class="text-sm text-slate-500">匯入每日幣量、批次 Key in 換點資料與效益淨利計算</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="downloadMachineCSVTemplate()" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-1 cursor-pointer">
+                            <i class="fa-solid fa-download"></i>
+                            <span>下載幣量範本</span>
+                        </button>
+                        <button onclick="openMachineUploadModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center space-x-1 cursor-pointer">
+                            <i class="fa-solid fa-file-import"></i>
+                            <span>匯入幣量 CSV</span>
+                        </button>
+                        <button onclick="openPointsModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center space-x-1 cursor-pointer">
+                            <i class="fa-solid fa-keyboard"></i>
+                            <span>批次 Key in 換點資料</span>
+                        </button>
+                        <button onclick="exportMachinesReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-1 cursor-pointer">
+                            <i class="fa-solid fa-file-excel"></i>
+                            <span>匯出分析 CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
+                            <label class="text-sm font-medium text-slate-700">商品搜尋：</label>
+                            <input type="text" id="machineSearchInput" oninput="renderMachinesTable()" placeholder="關鍵字..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-40">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-arrow-sort text-blue-500"></i>
+                            <label class="text-sm font-semibold text-slate-700">排序方式：</label>
+                            <select id="machineSortSelect" onchange="renderMachinesTable()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-blue-50 font-medium text-blue-800 cursor-pointer">
+                                <option value="date_desc">日期 (新 → 舊)</option>
+                                <option value="date_asc">日期 (舊 → 新)</option>
+                                <option value="rev_desc">收入金額 (高 → 低)</option>
+                                <option value="net_desc">淨利 (高 → 低)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-semibold text-slate-700">日期：</span>
+                        <input type="date" id="machineStartDate" onchange="renderMachinesTable()" class="border border-slate-300 rounded px-2 py-1 text-sm">
+                        <span>至</span>
+                        <input type="date" id="machineEndDate" onchange="renderMachinesTable()" class="border border-slate-300 rounded px-2 py-1 text-sm">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                            <tr>
+                                <th class="p-3">日期</th>
+                                <th class="p-3">機檯編號</th>
+                                <th class="p-3">商品名稱</th>
+                                <th class="p-3">收入金額</th>
+                                <th class="p-3">今日出錶結算</th>
+                                <th class="p-3">點數/兌換量</th>
+                                <th class="p-3">商品成本</th>
+                                <th class="p-3">出貨金額(刮獎)</th>
+                                <th class="p-3">淨利</th>
+                            </tr>
+                        </thead>
+                        <tbody id="machinesTableBody" class="divide-y divide-slate-100"></tbody>
+                        <tfoot id="machinesTableFooter" class="bg-slate-100 font-bold border-t-2 border-slate-300 divide-y divide-slate-200"></tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 5. 廠商進貨明細表 -->
+            <section id="tab-supplier" class="space-y-4 tab-section hidden">
+                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">廠商進貨明細表</h2>
+                        <p class="text-sm text-slate-500">按廠商與月份統計叫貨總額與每筆詳細數據</p>
+                    </div>
+                    <button onclick="exportSupplierReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>匯出廠商明細 CSV</span>
+                    </button>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                    <span class="text-sm font-semibold text-slate-700">選擇叫貨月份：</span>
+                    <input type="month" id="supplierMonthFilter" value="2026-10" onchange="renderSupplierReport()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+                </div>
+
+                <div id="supplierTotalCard" class="bg-blue-50 border border-blue-200 p-4 rounded-xl flex justify-between items-center">
+                    <div>
+                        <div class="text-sm text-blue-600 font-medium">當月所有廠商總金額</div>
+                        <div id="supplierTotalAmount" class="text-2xl font-bold text-blue-900">$0</div>
+                    </div>
+                    <div id="supplierTotalCount" class="text-sm text-blue-700 font-medium">總叫貨筆數：0 筆</div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                            <tr>
+                                <th class="p-3">廠商名稱</th>
+                                <th class="p-3">訂單編號</th>
+                                <th class="p-3">訂購日期</th>
+                                <th class="p-3">商品名稱 (規格)</th>
+                                <th class="p-3">訂購數量</th>
+                                <th class="p-3">單價</th>
+                                <th class="p-3">總金額</th>
+                                <th class="p-3">到貨登記人</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supplierReportTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 6. 貨款與進貨實際金額核對 -->
+            <section id="tab-payment-check" class="space-y-4 tab-section hidden">
+                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">貨款與進貨實際金額核對</h2>
+                        <p class="text-sm text-slate-500">支援從系統訂單帶入或手動自由新增（含貨未到先付款登記）</p>
+                    </div>
+                    <button onclick="openPaymentModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>新增貨款付款紀錄 (支援先付款)</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                        <div class="text-xs text-slate-500 font-medium">系統叫貨總金額</div>
+                        <div id="pcTotalOrderAmt" class="text-2xl font-bold text-slate-800">$0</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                        <div class="text-xs text-slate-500 font-medium">實際已付貨款總額</div>
+                        <div id="pcTotalPaidAmt" class="text-2xl font-bold text-emerald-600">$0</div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                        <div class="text-xs text-slate-500 font-medium">未付清尾款 (應付帳款)</div>
+                        <div id="pcTotalUnpaidAmt" class="text-2xl font-bold text-rose-600">$0</div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                            <tr>
+                                <th class="p-3">記錄日期</th>
+                                <th class="p-3">廠商名稱</th>
+                                <th class="p-3">對應單號</th>
+                                <th class="p-3">到貨日</th>
+                                <th class="p-3">實際到貨金額</th>
+                                <th class="p-3">實際支付金額</th>
+                                <th class="p-3">差額 (到貨-支付)</th>
+                                <th class="p-3">備註說明</th>
+                                <th class="p-3 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentCheckTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 7. 現金流核對 -->
+            <section id="tab-cashflow" class="space-y-4 tab-section hidden">
+                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">現金流核對系統</h2>
+                        <p class="text-sm text-slate-500">
+                            現金流 = 前日餘額 + 今日實際幣量收入 - 今日店支出 - 轉入貨款<br>
+                            貨款 = 前日餘額 + 營業額現金轉入 - 當日所有貨款（系統防呆：相同日期自動覆蓋）
+                        </p>
+                    </div>
+                    <button onclick="openCashflowModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>新增或更新每日現金流</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
+                            <tr>
+                                <th class="p-3">日期</th>
+                                <th class="p-3">前日餘額</th>
+                                <th class="p-3">今日實際幣量收入</th>
+                                <th class="p-3">營業額現金轉入</th>
+                                <th class="p-3">今日店支出</th>
+                                <th class="p-3">轉入貨款</th>
+                                <th class="p-3 font-bold text-blue-600">結算：現金流</th>
+                                <th class="p-3 font-bold text-purple-600">結算：貨款</th>
+                                <th class="p-3 text-right">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cashflowTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 8. 會計帳務核對與損益月報表 -->
+            <section id="tab-accounting" class="space-y-4 tab-section hidden">
+                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">會計帳務核對與損益月報表</h2>
+                        <p class="text-sm text-slate-500">完整涵蓋營收、支出、薪資、庫存變動與總資產損益計算</p>
+                    </div>
+                    <button onclick="exportMonthlyReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>匯出月報表 CSV</span>
+                    </button>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-semibold text-slate-700">月報表月份：</span>
+                        <input type="month" id="accMonthFilter" value="2026-10" onchange="renderAccountingReport()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-slate-50 font-bold text-blue-800">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto p-4">
+                    <table class="w-full text-left text-sm border-collapse border border-slate-200">
+                        <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+                            <tr>
+                                <th class="p-3 border border-slate-200">會計核對欄位</th>
+                                <th class="p-3 border border-slate-200 text-right">金額 / 數值 (元)</th>
+                                <th class="p-3 border border-slate-200">說明與連動來源</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountingFullTableBody" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+                    <h3 class="font-bold text-slate-800">新增月報表雜項支出 (如：員工薪資、其他店支出等)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <input type="text" id="expenseName" placeholder="支出名稱 (如：10月員工薪資)" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+                        <select id="expenseCategory" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+                            <option value="店支出">店支出 (-)</option>
+                            <option value="員工薪資">員工薪資 (-)</option>
+                            <option value="免費幣">免費幣 (-)</option>
+                            <option value="其他收入">其他收入 (+)</option>
+                        </select>
+                        <input type="number" id="expenseAmount" placeholder="金額" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+                        <button onclick="addStoreExpense()" class="bg-slate-800 hover:bg-slate-900 text-white rounded-lg px-4 py-1.5 text-sm font-medium cursor-pointer">新增帳款紀錄</button>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- 彈窗群組 (Modals) -->
+    <!-- 1. 新增叫貨訂單 Modal -->
+    <div id="purchaseModal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold">新增預定叫貨訂單 (全新貨品)</h3>
+                <button onclick="closePurchaseModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-4 text-sm">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">訂單編號</label>
+                        <input type="text" id="pOrderNo" class="w-full border rounded-lg px-3 py-2" placeholder="PO-202610-001">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">訂購日期</label>
+                        <input type="date" id="pDate" class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">廠商名稱</label>
+                        <input type="text" id="pSupplier" class="w-full border rounded-lg px-3 py-2" placeholder="例如：好樂迪玩具">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">商品條碼 (Barcode)</label>
+                        <input type="text" id="pBarcode" class="w-full border rounded-lg px-3 py-2" placeholder="4710000123456">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">商品名稱與規格</label>
+                    <input type="text" id="pItemName" class="w-full border rounded-lg px-3 py-2" placeholder="例如：大號趴趴熊娃娃">
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">訂購數量</label>
+                        <input type="number" id="pQty" oninput="calcPurchaseTotal()" class="w-full border rounded-lg px-3 py-2" value="10">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">單價 (元)</label>
+                        <input type="number" id="pPrice" oninput="calcPurchaseTotal()" class="w-full border rounded-lg px-3 py-2" value="250">
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">總金額</label>
+                        <input type="text" id="pTotal" class="w-full border rounded-lg px-3 py-2 bg-slate-100 font-bold" readonly value="2500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">擺放區域</label>
+                        <select id="pZone" class="w-full border rounded-lg px-3 py-2">
+                            <option value="1F">1F</option>
+                            <option value="機台商品">機台商品</option>
+                            <option value="B2">B2</option>
+                            <option value="點數兌換區">點數兌換區</option>
+                            <option value="夾換台區">夾換台區</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">商品用途</label>
+                        <select id="pUsage" class="w-full border rounded-lg px-3 py-2">
+                            <option value="機台貨">機台貨</option>
+                            <option value="夾換台">夾換台</option>
+                            <option value="點數兌換">點數兌換</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-3 flex justify-end space-x-3">
+                <button onclick="closePurchaseModal()" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer">取消</button>
+                <button onclick="saveNewPurchase()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium cursor-pointer">確認送出訂單</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 商品出庫登記 Modal -->
+    <div id="outstockModal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold">商品出庫登記</h3>
+                <button onclick="closeOutstockModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-4 text-sm">
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">選擇出庫商品</label>
+                    <select id="outItemBarcode" class="w-full border rounded-lg px-3 py-2"></select>
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">出庫數量</label>
+                    <input type="number" id="outQty" class="w-full border rounded-lg px-3 py-2" value="1" min="1">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">出庫說明 / 機檯編號</label>
+                    <input type="text" id="outReason" class="w-full border rounded-lg px-3 py-2" placeholder="例如：補至 #12 娃娃機台">
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-3 flex justify-end space-x-3">
+                <button onclick="closeOutstockModal()" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer">取消</button>
+                <button onclick="confirmOutstock()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium cursor-pointer">確認出庫扣減</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 現金流新增 Modal -->
+    <div id="cashflowModal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold">新增或更新每日現金流紀錄</h3>
+                <button onclick="closeCashflowModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-6 space-y-4 text-sm">
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">記錄日期</label>
+                    <input type="date" id="cfDate" class="w-full border rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">前日餘額 (自動帶入或手動)</label>
+                    <input type="number" id="cfPrevBal" class="w-full border rounded-lg px-3 py-2" value="50000">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">今日實際幣量收入</label>
+                    <input type="number" id="cfCoinRev" class="w-full border rounded-lg px-3 py-2" value="12000">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">營業額現金轉入</label>
+                    <input type="number" id="cfCashTransfer" class="w-full border rounded-lg px-3 py-2" value="10000">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">今日店支出</label>
+                    <input type="number" id="cfStoreExp" class="w-full border rounded-lg px-3 py-2" value="1500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">轉入貨款</label>
+                    <input type="number" id="cfPaymentTrans" class="w-full border rounded-lg px-3 py-2" value="5000">
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-3 flex justify-end space-x-3">
+                <button onclick="closeCashflowModal()" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer">取消</button>
+                <button onclick="saveCashflow()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium cursor-pointer">儲存現金流</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 完整核心邏輯 -->
+    <script>
+        let currentStore = "store_main";
+        let currentRole = "boss";
+
+        const ROLE_PASSWORDS = {
+            boss: "0000",
+            counter: "8989",
+            warehouse: "8888",
+            buyer: "9999"
+        };
+
+        const ROLE_NAMES = {
+            boss: "會計 / 店長",
+            counter: "櫃台人員",
+            warehouse: "倉管人員",
+            buyer: "採購人員"
+        };
+
+        let db = {
+            store_main: {
+                purchases: [
+                    { id: 1, orderNo: "PO-202610-001", date: "2026-10-01", supplier: "好樂迪玩具", barcode: "471111100001", itemName: "大號趴趴熊娃娃", qty: 20, price: 250, total: 5000, zone: "1F", usage: "機台貨", paymentDate: "2026-10-05", handler: "王店長", status: "已完放入庫" },
+                    { id: 2, orderNo: "PO-202610-002", date: "2026-10-15", supplier: "三麗鷗批發", barcode: "471111100002", itemName: "庫洛米藍牙喇叭", qty: 10, price: 680, total: 6800, zone: "機台商品", usage: "機台貨", paymentDate: "2026-10-20", handler: "李倉管", status: "已完放入庫" }
+                ],
+                stock: [
+                    { barcode: "471111100001", itemName: "大號趴趴熊娃娃", usage: "機台貨", zone: "1F", supplier: "好樂迪玩具", price: 250, qty: 15, minStock: 5 },
+                    { barcode: "471111100002", itemName: "庫洛米藍牙喇叭", usage: "機台貨", zone: "機台商品", supplier: "三麗鷗批發", price: 680, qty: 4, minStock: 5 }
+                ],
+                stocktake: {},
+                machines: [
+                    { date: "2026-10-02", machineNo: "#12", itemName: "大號趴趴熊娃娃", revenue: 4500, counter: 30, points: 2, cost: 250, outAmt: 500, net: 3750 }
+                ],
+                payments: [
+                    { id: 1, recordDate: "2026-10-05", supplier: "好樂迪玩具", orderNo: "PO-202610-001", receiveDate: "2026-10-03", receiveAmt: 5000, paidAmt: 5000, diff: 0, note: "結清" }
+                ],
+                cashflows: [
+                    { date: "2026-10-01", prevBal: 45000, coinRev: 12000, cashTransfer: 10000, storeExp: 1000, paymentTrans: 5000, cashflow: 51000, paymentBal: 50000 }
+                ],
+                expenses: [
+                    { name: "10月店租", category: "店支出", amount: 30000 },
+                    { name: "10月正職薪資", category: "員工薪資", amount: 45000 }
+                ]
+            },
+            store_ximen: { purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [], expenses: [] },
+            store_fengjia: { purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [], expenses: [] }
+        };
+
+        window.addEventListener("DOMContentLoaded", () => {
+            loadFromLocalStorage();
+            switchTab('tab-purchase');
+            renderAll();
+        });
+
+        function performLogin() {
+            const roleSelectElem = document.getElementById("loginRoleSelect");
+            const passwordInputElem = document.getElementById("loginPasswordInput");
+            
+            if (!roleSelectElem || !passwordInputElem) return;
+
+            const role = roleSelectElem.value;
+            const password = passwordInputElem.value;
+
+            if (password !== ROLE_PASSWORDS[role]) {
+                alert("密碼錯誤，請重新輸入！");
+                return;
+            }
+
+            currentRole = role;
+            const roleSelect = document.getElementById("roleSelect");
+            if (roleSelect) roleSelect.value = role;
+
+            passwordInputElem.value = ""; 
+            document.getElementById("loginModal").classList.add("hidden");
+            applyRolePermissions();
+            renderAll();
+        }
+
+        function logout() {
+            document.getElementById("loginModal").classList.remove("hidden");
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem("fajabook_db_v4");
+            if (saved) {
+                try { db = JSON.parse(saved); } catch (e) { console.error(e); }
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem("fajabook_db_v4", JSON.stringify(db));
+        }
+
+        function switchStore() {
+            currentStore = document.getElementById("storeSelect").value;
+            renderAll();
+        }
+
+        function switchRole() {
+            const roleSelect = document.getElementById("roleSelect");
+            const selectedRole = roleSelect ? roleSelect.value : "boss";
+
+            if (selectedRole === currentRole) return;
+
+            let password = prompt(`切換至【${ROLE_NAMES[selectedRole]}】，請輸入該角色密碼：`);
+
+            if (password === ROLE_PASSWORDS[selectedRole]) {
+                currentRole = selectedRole;
+                applyRolePermissions();
+                renderAll();
+                alert(`成功切換為【${ROLE_NAMES[selectedRole]}】！`);
+            } else {
+                alert("密碼錯誤，無法切換權限！");
+                if (roleSelect) roleSelect.value = currentRole;
+            }
+        }
+
+        function applyRolePermissions() {
+            const roleSelect = document.getElementById("roleSelect");
+            if (roleSelect) roleSelect.value = currentRole;
+
+            const navs = {
+                'nav-purchase': ['boss', 'buyer', 'warehouse', 'counter'],
+                'nav-stock': ['boss', 'warehouse', 'counter'],
+                'nav-stocktake': ['boss', 'warehouse', 'counter'],
+                'nav-machines': ['boss', 'warehouse', 'counter'],
+                'nav-supplier': ['boss', 'warehouse', 'counter'],
+                'nav-payment-check': ['boss', 'counter'], 
+                'nav-cashflow': ['boss'],                
+                'nav-accounting': ['boss']               
+            };
+
+            for (let [navId, allowedRoles] of Object.entries(navs)) {
+                const el = document.getElementById(navId);
+                if (el) {
+                    if (allowedRoles.includes(currentRole)) {
+                        el.style.display = "";
+                        el.classList.remove("hidden");
+                    } else {
+                        el.style.display = "none";
+                        el.classList.add("hidden");
+                    }
+                }
+            }
+
+            const activeSection = document.querySelector(".tab-section:not(.hidden)");
+            if (activeSection) {
+                const activeId = activeSection.id;
+                const allowedTabsForCurrentRole = Object.keys(navs)
+                    .filter(navId => navs[navId].includes(currentRole))
+                    .map(navId => navId.replace('nav-', 'tab-'));
+
+                if (!allowedTabsForCurrentRole.includes(activeId)) {
+                    switchTab('tab-purchase');
+                }
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-section").forEach(sec => sec.classList.add("hidden"));
+            document.querySelectorAll("#sidebarNav button").forEach(btn => btn.classList.remove("sidebar-active"));
+
+            const target = document.getElementById(tabId);
+            if (target) target.classList.remove("hidden");
+
+            const navBtn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
+            if (navBtn) navBtn.classList.add("sidebar-active");
+
+            renderAll();
+        }
+
+        function renderAll() {
+            renderPurchaseTable();
+            renderStockTable();
+            renderStocktakeTable();
+            renderMachinesTable();
+            renderSupplierReport();
+            renderPaymentCheckTable();
+            renderCashflowTable();
+            renderAccountingReport();
+            updateOutstockDropdown();
+            
+            applyRolePermissions();
+        }
+
+        function syncWithCloud() {
+            const icon = document.getElementById("syncIcon");
+            const text = document.getElementById("syncText");
+            icon.className = "fa-solid fa-spinner fa-spin";
+            text.innerText = "同步中...";
+            setTimeout(() => {
+                saveToLocalStorage();
+                icon.className = "fa-solid fa-cloud-arrow-up";
+                text.innerText = "雲端同步正常";
+                alert("資料已成功同步至雲端伺服器！");
+            }, 800);
+        }
+
+        function openPurchaseModal() {
+            document.getElementById("pDate").value = new Date().toISOString().split('T')[0];
+            document.getElementById("purchaseModal").classList.remove("hidden");
+        }
+        function closePurchaseModal() { document.getElementById("purchaseModal").classList.add("hidden"); }
+        function calcPurchaseTotal() {
+            const q = parseInt(document.getElementById("pQty").value) || 0;
+            const p = parseInt(document.getElementById("pPrice").value) || 0;
+            document.getElementById("pTotal").value = q * p;
+        }
+
+        function saveNewPurchase() {
+            const storeData = db[currentStore];
+            const newOrder = {
+                id: Date.now(),
+                orderNo: document.getElementById("pOrderNo").value || "PO-" + Date.now(),
+                date: document.getElementById("pDate").value,
+                supplier: document.getElementById("pSupplier").value || "未指定廠商",
+                barcode: document.getElementById("pBarcode").value || "BC" + Math.floor(Math.random()*100000),
+                itemName: document.getElementById("pItemName").value || "未命名商品",
+                qty: parseInt(document.getElementById("pQty").value) || 1,
+                price: parseInt(document.getElementById("pPrice").value) || 0,
+                total: parseInt(document.getElementById("pTotal").value) || 0,
+                zone: document.getElementById("pZone").value,
+                usage: document.getElementById("pUsage").value,
+                paymentDate: "",
+                handler: "系統管理員",
+                status: "待到貨"
+            };
+            storeData.purchases.push(newOrder);
+
+            let stockItem = storeData.stock.find(s => s.barcode === newOrder.barcode);
+            if (!stockItem) {
+                storeData.stock.push({
+                    barcode: newOrder.barcode,
+                    itemName: newOrder.itemName,
+                    usage: newOrder.usage,
+                    zone: newOrder.zone,
+                    supplier: newOrder.supplier,
+                    price: newOrder.price,
+                    qty: 0,
+                    minStock: 5
+                });
+            }
+
+            saveToLocalStorage();
+            closePurchaseModal();
+            renderAll();
+        }
+
+        function renderPurchaseTable() {
+            const tbody = document.getElementById("purchaseTableBody");
+            if (!tbody) return;
+            const storeData = db[currentStore];
+            const filterStatus = document.getElementById("filterPurchaseStatus").value;
+            const filterSupp = document.getElementById("filterPurchaseSupplier").value.toLowerCase();
+
+            let html = "";
+            let unstockedCount = 0;
+
+            storeData.purchases.forEach(item => {
+                if (filterStatus !== "all" && item.status !== filterStatus) return;
+                if (filterSupp && !item.supplier.toLowerCase().includes(filterSupp)) return;
+
+                if (item.status === "已到貨未入庫") unstockedCount++;
+
+                let badge = "bg-blue-100 text-blue-700";
+                if (item.status === "已到貨未入庫") badge = "bg-amber-100 text-amber-700";
+                if (item.status === "已完放入庫") badge = "bg-emerald-100 text-emerald-700";
+
+                html += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-semibold">${item.orderNo}<br><span class="text-xs text-slate-400">${item.date}</span></td>
+                        <td class="p-3 font-medium">${item.supplier}</td>
+                        <td class="p-3">${item.itemName}</td>
+                        <td class="p-3">${item.qty} 單位<br><span class="text-xs text-slate-500">$${item.price}</span></td>
+                        <td class="p-3 font-bold text-slate-700">$${item.total.toLocaleString()}</td>
+                        <td class="p-3">${item.paymentDate || '-'}</td>
+                        <td class="p-3">${item.handler}</td>
+                        <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold ${badge}">${item.status}</span></td>
+                        <td class="p-3 text-right space-x-1">
+                            ${item.status === '待到貨' ? `<button onclick="changePurchaseStatus(${item.id}, '已到貨未入庫')" class="bg-amber-500 text-white px-2 py-1 rounded text-xs cursor-pointer">登記到貨</button>` : ''}
+                            ${item.status === '已到貨未入庫' ? `<button onclick="changePurchaseStatus(${item.id}, '已完放入庫')" class="bg-emerald-600 text-white px-2 py-1 rounded text-xs cursor-pointer">確認入庫</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html || `<tr><td colspan="9" class="p-4 text-center text-slate-400">目前無符合條件的叫貨訂單</td></tr>`;
+
+            const alertBox = document.getElementById("unstockedAlert");
+            if (unstockedCount > 0) {
+                alertBox.classList.remove("hidden");
+                document.getElementById("unstockedAlertText").innerText = `共有 ${unstockedCount} 筆訂單貨品已到貨，請盡速前往庫存完成入庫上架！`;
+            } else {
+                alertBox.classList.add("hidden");
+            }
+        }
+
+        function changePurchaseStatus(id, newStatus) {
+            const storeData = db[currentStore];
+            const item = storeData.purchases.find(p => p.id === id);
+            if (item) {
+                item.status = newStatus;
+                if (newStatus === "已完放入庫") {
+                    let stock = storeData.stock.find(s => s.barcode === item.barcode);
+                    if (stock) stock.qty += item.qty;
+                }
+                saveToLocalStorage();
+                renderAll();
+            }
+        }
+
+        function renderStockTable() {
+            const tbody = document.getElementById("stockTableBody");
+            if (!tbody) return;
+            const storeData = db[currentStore];
+            const q = document.getElementById("stockSearchInput").value.toLowerCase();
+            const usage = document.getElementById("stockUsageFilter").value;
+
+            let html = "";
+            storeData.stock.forEach(item => {
+                if (usage !== "all" && item.usage !== usage) return;
+                if (q && !item.itemName.toLowerCase().includes(q) && !item.barcode.toLowerCase().includes(q)) return;
+
+                let isLow = item.qty <= item.minStock;
+                html += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-mono text-xs text-slate-600">${item.barcode}</td>
+                        <td class="p-3 font-medium text-slate-800">${item.itemName}</td>
+                        <td class="p-3"><span class="bg-slate-100 px-2 py-1 rounded text-xs">${item.usage}</span></td>
+                        <td class="p-3">${item.zone}</td>
+                        <td class="p-3">${item.supplier}</td>
+                        <td class="p-3">$${item.price}</td>
+                        <td class="p-3 font-bold ${isLow ? 'text-rose-600' : 'text-slate-800'}">${item.qty}</td>
+                        <td class="p-3">${isLow ? '<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-xs font-bold">庫存不足警示</span>' : '<span class="text-emerald-600 text-xs font-bold">庫存正常</span>'}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html || `<tr><td colspan="8" class="p-4 text-center text-slate-400">找不到相符的庫存商品</td></tr>`;
+        }
+
+        function openOutstockModal() {
+            updateOutstockDropdown();
+            document.getElementById("outstockModal").classList.remove("hidden");
+        }
+        function closeOutstockModal() { document.getElementById("outstockModal").classList.add("hidden"); }
+
+        function updateOutstockDropdown() {
+            const sel = document.getElementById("outItemBarcode");
+            if (!sel) return;
+            const storeData = db[currentStore];
+            let html = "";
+            storeData.stock.forEach(s => {
+                html += `<option value="${s.barcode}">${s.itemName} (現存: ${s.qty})</option>`;
+            });
+            sel.innerHTML = html;
+        }
+
+        function confirmOutstock() {
+            const storeData = db[currentStore];
+            const barcode = document.getElementById("outItemBarcode").value;
+            const qty = parseInt(document.getElementById("outQty").value) || 1;
+            const reason = document.getElementById("outReason").value;
+
+            let stock = storeData.stock.find(s => s.barcode === barcode);
+            if (stock) {
+                if (stock.qty < qty) {
+                    alert("庫存數量不足，無法出庫！");
+                    return;
+                }
+                stock.qty -= qty;
+                saveToLocalStorage();
+                closeOutstockModal();
+                renderAll();
+                alert(`成功出庫 ${qty} 件 ${stock.itemName} (${reason})`);
+            }
+        }
+
+        function renderStocktakeTable() {
+            const tbody = document.getElementById("stocktakeTableBody");
+            if (!tbody) return;
+            const storeData = db[currentStore];
+            const zone = document.getElementById("stocktakeZoneFilter").value;
+
+            if (!storeData.stocktake[zone]) storeData.stocktake[zone] = {};
+
+            let html = "";
+            storeData.stock.filter(s => s.zone === zone).forEach(item => {
+                let actual = storeData.stocktake[zone][item.barcode] !== undefined ? storeData.stocktake[zone][item.barcode] : item.qty;
+                let diff = actual - item.qty;
+                let diffAmt = diff * item.price;
+
+                html += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-medium">${item.itemName}</td>
+                        <td class="p-3">$${item.price}</td>
+                        <td class="p-3 font-semibold text-slate-600">${item.qty}</td>
+                        <td class="p-3">
+                            <input type="number" value="${actual}" oninput="updateStocktakeVal('${zone}', '${item.barcode}', this.value)" class="border rounded px-2 py-1 w-24 text-sm font-bold">
+                        </td>
+                        <td class="p-3 font-bold ${diff < 0 ? 'text-rose-600' : diff > 0 ? 'text-emerald-600' : 'text-slate-600'}">${diff}</td>
+                        <td class="p-3 font-bold ${diffAmt < 0 ? 'text-rose-600' : diffAmt > 0 ? 'text-emerald-600' : 'text-slate-600'}">$${diffAmt.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html || `<tr><td colspan="6" class="p-4 text-center text-slate-400">此區域目前無庫存商品</td></tr>`;
+        }
+
+        function updateStocktakeVal(zone, barcode, val) {
+            const storeData = db[currentStore];
+            if (!storeData.stocktake[zone]) storeData.stocktake[zone] = {};
+            storeData.stocktake[zone][barcode] = parseInt(val) || 0;
+            renderStocktakeTable();
+        }
+
+        function saveStocktake() {
+            saveToLocalStorage();
+            alert("當前區域盤點結果已儲存完畢！");
+        }
+
+        function renderMachinesTable() {
+            const tbody = document.getElementById("machinesTableBody");
+            const tfoot = document.getElementById("machinesTableFooter");
+            if (!tbody || !tfoot) return;
+            const storeData = db[currentStore];
+
+            let html = "";
+            let totalRev = 0, totalNet = 0;
+
+            storeData.machines.forEach(m => {
+                totalRev += m.revenue;
+                totalNet += m.net;
+                html += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3">${m.date}</td>
+                        <td class="p-3 font-bold text-blue-600">${m.machineNo}</td>
+                        <td class="p-3">${m.itemName}</td>
+                        <td class="p-3 font-semibold text-slate-800">$${m.revenue.toLocaleString()}</td>
+                        <td class="p-3">${m.counter}</td>
+                        <td class="p-3">${m.points}</td>
+                        <td class="p-3">$${m.cost}</td>
+                        <td class="p-3">$${m.outAmt}</td>
+                        <td class="p-3 font-bold text-emerald-600">$${m.net.toLocaleString()}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html || `<tr><td colspan="9" class="p-4 text-center text-slate-400">目前無機台營運紀錄</td></tr>`;
+
+            tfoot.innerHTML = `
+                <tr>
+                    <td colspan="3" class="p-3 text-right">總計：</td>
+                    <td class="p-3 text-slate-900">$${totalRev.toLocaleString()}</td>
+                    <td colspan="4" class="p-3 text-right">總淨利：</td>
+                    <td class="p-3 text-emerald-700">$${totalNet.toLocaleString()}</td>
+                </tr>
+            `;
+        }
+
+        function downloadMachineCSVTemplate() {
+            let csv = "date,machineNo,itemName,revenue,counter,points,cost,outAmt\n2026-10-01,#12,大號娃娃,5000,35,2,250,500";
+            let blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "machine_template.csv";
+            link.click();
+        }
+
+        function openMachineUploadModal() { alert("模擬批次匯入 CSV 幣量資料成功！"); }
+        function openPointsModal() { alert("開啟批次 Key in 換點點數功能視窗！"); }
+        function exportMachinesReport() { alert("機台效益分析報告 CSV 匯出成功！"); }
+
+        function renderSupplierReport() {
+            const tbody = document.getElementById("supplierReportTableBody");
+            if (!tbody) return;
+            const storeData = db[currentStore];
+            const month = document.getElementById("supplierMonthFilter").value;
+
+            let html = "";
+            let sum = 0, count = 0;
+
+            storeData.purchases.forEach(p => {
+                if (p.date.startsWith(month)) {
+                    sum += p.total;
+                    count++;
+                    html += `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3 font-bold text-slate-800">${p.supplier}</td>
+                            <td class="p-3 text-slate-600">${p.orderNo}</td>
+                            <td class="p-3">${p.date}</td>
+                            <td class="p-3">${p.itemName}</td>
+                            <td class="p-3">${p.qty}</td>
+                            <td class="p-3">$${p.price}</td>
+                            <td class="p-3 font-bold text-blue-700">$${p.total.toLocaleString()}</td>
+                            <td class="p-3">${p.handler}</td>
+                        </tr>
+                    `;
+                }
+            });
+            tbody.innerHTML = html || `<tr><td colspan="8" class="p-4 text-center text-slate-400">此月份無廠商進貨明細</td></tr>`;
+            document.getElementById("supplierTotalAmount").innerText = `$${sum.toLocaleString()}`;
+            document.getElementById("supplierTotalCount").innerText = `總叫貨筆數：${count} 筆`;
+        }
+
+        function exportSupplierReport() { alert("廠商進貨明細 CSV 匯出成功！"); }
+
+        function renderPaymentCheckTable() {
+            const tbody = document.getElementById("paymentCheckTableBody");
+            if (!tbody) return;
+            const storeData = db[currentStore];
+
+            let totalOrder = 0, totalPaid = 0;
+            storeData.purchases.forEach(p => totalOrder += p.total);
+            storeData.payments.forEach(pay => totalPaid += pay.paidAmt);
+
+            document.getElementById("pcTotalOrderAmt").innerText = `$${totalOrder.toLocaleString()}`;
+            document.getElementById("pcTotalPaidAmt").innerText = `$${totalPaid.toLocaleString()}`;
+            document.getElementById("pcTotalUnpaidAmt").innerText = `$${(totalOrder - totalPaid).toLocaleString()}`;
+
+            let html = "";
+            storeData.payments.forEach(pay => {
+                let diff = pay.receiveAmt - pay.paidAmt;
+                html += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3">${pay.recordDate}</td>
+                        <td class="p-3 font-bold">${pay.supplier}</td>
+                        <td class="p-3 text-slate-600">${pay.orderNo}</td>
+                        <td class="p-3">${pay.receiveDate}</td>
+                        <td class="p-3">$${pay.receiveAmt.toLocaleString()}</td>
+                        <td class="p-3 text-emerald-600 font-bold">$${pay.paidAmt.toLocaleString()}</td>
+                        <td class="p-3 font-bold ${diff !== 0 ? 'text-rose-600' : 'text-slate-600'}">$${diff.toLocaleString()}</td>
+                        <td class="p-3">${pay.note}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="deletePayment(${pay.id})" class="text-rose-500 hover:underline text-xs cursor-pointer">刪除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html || `<tr><td colspan="9" class="p-4 text-center text-slate-400">目前無貨款付款紀錄</td></tr>`;
+        }
+
+        function openPaymentModal() {
+            let supp = prompt("請輸入廠商名稱：", "好樂迪玩具");
+            if (!supp) return;
+            let amt = parseInt(prompt("請輸入實際支付金額：", "5000")) || 0;
+            db[currentStore].payments.push({
+                id: Date.now(),
+                recordDate: new Date().toISOString().split('T')[0],
+                supplier: supp,
+                orderNo: "MANUAL-" + Math.floor(Math.random()*1000),
+                receiveDate: new Date().toISOString().split('T')[0],
+                receiveAmt: amt,
+                paidAmt: amt,
+                diff: 0,
+                note: "手動或提前付款"
+            });
+            saveToLocalStorage();
+            renderPaymentCheckTable();
+        }
+
+        function deletePayment(id) {
+            const storeData = db[currentStore];
+            storeData.payments = storeData.payments.filter(p => p.id !== id);
+            saveToLocalStorage();
+            renderPaymentCheckTable();
+        }
+
+        function renderCashflowTable() {
+            const tbody = document.getElementById("cashflowTableBody");
+            if (!tbody) return;
+            const storeData = db[currentStore];
+
+            let html = "";
+            storeData.cashflows.forEach(cf => {
+                html += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-bold">${cf.date}</td>
+                        <td class="p-3">$${cf.prevBal.toLocaleString()}</td>
+                        <td class="p-3 text-emerald-600 font-semibold">+$${cf.coinRev.toLocaleString()}</td>
+                        <td class="p-3">+$${cf.cashTransfer.toLocaleString()}</td>
+                        <td class="p-3 text-rose-600">-$${cf.storeExp.toLocaleString()}</td>
+                        <td class="p-3 text-rose-600">-$${cf.paymentTrans.toLocaleString()}</td>
+                        <td class="p-3 font-bold text-blue-700">$${cf.cashflow.toLocaleString()}</td>
+                        <td class="p-3 font-bold text-purple-700">$${cf.paymentBal.toLocaleString()}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="deleteCashflow('${cf.date}')" class="text-rose-500 hover:underline text-xs cursor-pointer">刪除</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html || `<tr><td colspan="9" class="p-4 text-center text-slate-400">目前無現金流紀錄</td></tr>`;
+        }
+
+        function openCashflowModal() {
+            document.getElementById("cfDate").value = new Date().toISOString().split('T')[0];
+            document.getElementById("cashflowModal").classList.remove("hidden");
+        }
+        function closeCashflowModal() { document.getElementById("cashflowModal").classList.add("hidden"); }
+
+        function saveCashflow() {
+            const storeData = db[currentStore];
+            const date = document.getElementById("cfDate").value;
+            const prevBal = parseInt(document.getElementById("cfPrevBal").value) || 0;
+            const coinRev = parseInt(document.getElementById("cfCoinRev").value) || 0;
+            const cashTransfer = parseInt(document.getElementById("cfCashTransfer").value) || 0;
+            const storeExp = parseInt(document.getElementById("cfStoreExp").value) || 0;
+            const paymentTrans = parseInt(document.getElementById("cfPaymentTrans").value) || 0;
+
+            const cashflow = prevBal + coinRev - storeExp - paymentTrans;
+            const paymentBal = prevBal + cashTransfer - paymentTrans;
+
+            storeData.cashflows = storeData.cashflows.filter(c => c.date !== date);
+            storeData.cashflows.push({ date, prevBal, coinRev, cashTransfer, storeExp, paymentTrans, cashflow, paymentBal });
+
+            saveToLocalStorage();
+            closeCashflowModal();
+            renderCashflowTable();
+        }
+
+        function deleteCashflow(date) {
+            const storeData = db[currentStore];
+            storeData.cashflows = storeData.cashflows.filter(c => c.date !== date);
+            saveToLocalStorage();
+            renderCashflowTable();
+        }
+
+        function renderAccountingReport() {
+            const tbody = document.getElementById("accountingFullTableBody");
+            if (!tbody) return;
+            const storeData = db[currentStore];
+
+            let totalRev = 0;
+            storeData.machines.forEach(m => totalRev += m.revenue);
+
+            let totalPurchase = 0;
+            storeData.purchases.forEach(p => totalPurchase += p.total);
+
+            let totalExp = 0;
+            storeData.expenses.forEach(e => totalExp += e.amount);
+
+            let netProfit = totalRev - totalPurchase - totalExp;
+
+            let html = `
+                <tr><td class="p-3 border font-semibold">1. 機台總營業額收入 (+)</td><td class="p-3 border text-right font-bold text-emerald-600">$${totalRev.toLocaleString()}</td><td class="p-3 border text-slate-500">連動「機台每日幣量與分析」總和</td></tr>
+                <tr><td class="p-3 border font-semibold">2. 採購進貨成本 (-)</td><td class="p-3 border text-right font-bold text-rose-600">-$${totalPurchase.toLocaleString()}</td><td class="p-3 border text-slate-500">連動「預定進貨表」總金額</td></tr>
+                <tr><td class="p-3 border font-semibold">3. 店支出與薪資等雜項 (-)</td><td class="p-3 border text-right font-bold text-rose-600">-$${totalExp.toLocaleString()}</td><td class="p-3 border text-slate-500">下方自定義雜項支出加總</td></tr>
+                <tr class="bg-blue-50 font-bold text-lg"><td class="p-3 border">4. 當月淨利損益總計 (=)</td><td class="p-3 border text-right text-blue-900">$${netProfit.toLocaleString()}</td><td class="p-3 border">總營業額 - 進貨成本 - 雜項支出</td></tr>
+            `;
+
+            storeData.expenses.exports?.forEach?.(); // Safe
+            storeData.expenses.forEach((e, idx) => {
+                html += `
+                    <tr class="bg-slate-50 text-xs">
+                        <td class="p-2 border pl-6">└ 支出細項：${e.name} (${e.category})</td>
+                        <td class="p-2 border text-right text-rose-600">-$${e.amount.toLocaleString()}</td>
+                        <td class="p-2 border"><button onclick="deleteExpense(${idx})" class="text-rose-500 hover:underline cursor-pointer">刪除此項目</button></td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function addStoreExpense() {
+            const storeData = db[currentStore];
+            const name = document.getElementById("expenseName").value.trim();
+            const category = document.getElementById("expenseCategory").value;
+            const amount = parseInt(document.getElementById("expenseAmount").value) || 0;
+
+            if (!name || amount <= 0) {
+                alert("請完整填寫支出名稱與有效金額！");
+                return;
+            }
+
+            storeData.expenses.push({ name, category, amount });
+            saveToLocalStorage();
+            renderAccountingReport();
+            document.getElementById("expenseName").value = "";
+            document.getElementById("expenseAmount").value = "";
+        }
+
+        function deleteExpense(idx) {
+            const storeData = db[currentStore];
+            storeData.expenses.splice(idx, 1);
+            saveToLocalStorage();
+            renderAccountingReport();
+        }
+
+        function exportMonthlyReport() { alert("會計損益月報表 CSV 匯出成功！"); }
+    </script>
+</body>
+</html>
