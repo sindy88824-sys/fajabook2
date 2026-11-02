@@ -21,17 +21,19 @@
             <div class="bg-slate-900 text-white p-6 text-center">
                 <i class="fa-solid fa-store text-4xl text-blue-400 mb-2"></i>
                 <h2 class="text-2xl font-bold">非夾不可後台帳務系統</h2>
-                <p class="text-slate-400 text-xs mt-1">請選擇登入角色以進入系統</p>
+                <p class="text-slate-400 text-xs mt-1">請選擇登入角色並輸入密碼以進入系統</p>
             </div>
             <div class="p-6 space-y-4">
                 <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-2">選擇登入角色</label>
-                    <select id="loginRoleSelect" class="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        <option value="boss">👑 會計 / 店長 (所有開放權限)</option>
-                        <option value="counter">🏪 櫃台人員 (僅開放除現金流與月報表外之功能)</option>
-                        <option value="warehouse">📦 倉管人員 (叫貨、庫存、盤點、機台、廠商)</option>
-                        <option value="buyer">🛒 採購人員 (僅預定進貨叫貨頁面)</option>
+                    <select id="loginRoleSelect" class="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none mb-3">
+                        <option value="boss">👑 會計 / 店長 (密碼: 0000)</option>
+                        <option value="counter">🏪 櫃台人員 (密碼: 8989)</option>
+                        <option value="warehouse">📦 倉管人員 (密碼: 8888)</option>
+                        <option value="buyer">🛒 採購人員 (密碼: 9999)</option>
                     </select>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">輸入密碼</label>
+                    <input type="password" id="loginPasswordInput" class="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="請輸入對應密碼">
                 </div>
                 <button onclick="performLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg transition duration-200 cursor-pointer">
                     登入系統
@@ -78,7 +80,7 @@
 
             <!-- 登出按鈕 -->
             <button onclick="logout()" class="bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white px-3 py-1 rounded-lg text-sm transition">
-                <i class="fa-solid fa-right-from-bracket"></i>
+                <i class="fa-solid fa-right-from-bracket"></i> 登出
             </button>
         </div>
     </header>
@@ -690,6 +692,21 @@
         let currentStore = "store_main";
         let currentRole = "boss";
 
+        // 各角色密碼對照表
+        const ROLE_PASSWORDS = {
+            boss: "0000",
+            counter: "8989",
+            warehouse: "8888",
+            buyer: "9999"
+        };
+
+        const ROLE_NAMES = {
+            boss: "會計 / 店長",
+            counter: "櫃台人員",
+            warehouse: "倉管人員",
+            buyer: "採購人員"
+        };
+
         let db = {
             store_main: {
                 purchases: [
@@ -727,10 +744,18 @@
 
         function performLogin() {
             const role = document.getElementById("loginRoleSelect").value;
+            const password = document.getElementById("loginPasswordInput").value;
+
+            if (password !== ROLE_PASSWORDS[role]) {
+                alert("密碼錯誤，請重新輸入！");
+                return;
+            }
+
             currentRole = role;
             const roleSelect = document.getElementById("roleSelect");
             if (roleSelect) roleSelect.value = role;
 
+            document.getElementById("loginPasswordInput").value = ""; // 清空密碼框
             document.getElementById("loginModal").classList.add("hidden");
             applyRolePermissions();
             renderAll();
@@ -758,14 +783,27 @@
 
         function switchRole() {
             const roleSelect = document.getElementById("roleSelect");
-            currentRole = roleSelect ? roleSelect.value : "boss";
-            applyRolePermissions();
+            const selectedRole = roleSelect ? roleSelect.value : "boss";
+
+            if (selectedRole === currentRole) return;
+
+            let password = prompt(`切換至【${ROLE_NAMES[selectedRole]}】，請輸入該角色密碼：`);
+
+            if (password === ROLE_PASSWORDS[selectedRole]) {
+                currentRole = selectedRole;
+                applyRolePermissions();
+                renderAll();
+                alert(`成功切換為【${ROLE_NAMES[selectedRole]}】！`);
+            } else {
+                alert("密碼錯誤，無法切換權限！");
+                if (roleSelect) roleSelect.value = currentRole;
+            }
         }
 
         // 🔒 權限控制核心（櫃台僅隱藏現金流與月報表）
         function applyRolePermissions() {
             const roleSelect = document.getElementById("roleSelect");
-            currentRole = roleSelect ? roleSelect.value : "boss"; 
+            if (roleSelect) roleSelect.value = currentRole;
 
             const navs = {
                 'nav-purchase': ['boss', 'buyer', 'warehouse', 'counter'],
@@ -773,9 +811,9 @@
                 'nav-stocktake': ['boss', 'warehouse', 'counter'],
                 'nav-machines': ['boss', 'warehouse', 'counter'],
                 'nav-supplier': ['boss', 'warehouse', 'counter'],
-                'nav-payment-check': ['boss', 'counter'], // 櫃台可存取貨款核對
-                'nav-cashflow': ['boss'],                // 僅限會計/店長
-                'nav-accounting': ['boss']               // 僅限會計/店長
+                'nav-payment-check': ['boss', 'counter'], 
+                'nav-cashflow': ['boss'],                
+                'nav-accounting': ['boss']               
             };
 
             for (let [navId, allowedRoles] of Object.entries(navs)) {
@@ -829,7 +867,6 @@
             renderAccountingReport();
             updateOutstockDropdown();
             
-            // 💡 每次畫面重新整理或新增資料後，強制再次套用權限檢查
             applyRolePermissions();
         }
 
