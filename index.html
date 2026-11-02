@@ -654,7 +654,48 @@
     </div>
 
     <!-- JavaScript 完整核心邏輯 -->
-    <script>
+    <script>function applyRolePermissions() {
+    // 取得當前選擇的角色
+    const roleSelect = document.getElementById("roleSelect");
+    const currentRole = roleSelect ? roleSelect.value : "boss"; 
+
+    // 定義各個模組允許檢視的角色清單
+    // 其中 'payment-check' (貨款核對), 'cashflow' (現金流), 'accounting' (會計損益) 僅限 boss (店長/會計)
+    const navs = {
+        'nav-purchase': ['boss', 'buyer', 'warehouse', 'counter'],
+        'nav-stock': ['boss', 'warehouse', 'counter'],
+        'nav-stocktake': ['boss', 'warehouse'],
+        'nav-machines': ['boss', 'warehouse'],
+        'nav-supplier': ['boss', 'warehouse'],
+        'nav-payment-check': ['boss'], // 嚴格限定店長/會計
+        'nav-cashflow': ['boss'],      // 嚴格限定店長/會計
+        'nav-accounting': ['boss']     // 嚴格限定店長/會計
+    };
+
+    // 巡覽並控制每個選單按鈕的顯示與隱藏
+    for (let [navId, allowedRoles] of Object.entries(navs)) {
+        const el = document.getElementById(navId);
+        if (el) {
+            if (allowedRoles.includes(currentRole)) {
+                el.classList.remove("hidden");
+                el.style.display = "flex"; // 符合權限就顯示
+            } else {
+                el.classList.add("hidden");
+                el.style.display = "none"; // 不符合權限就強制隱藏
+            }
+        }
+    }
+
+    // 防呆：如果當前身分沒有權限看目前分頁，自動跳回預設的叫貨頁面
+    const activeSection = document.querySelector(".tab-section:not(.hidden)");
+    if (activeSection) {
+        const activeId = activeSection.id;
+        // 如果身分是櫃台，卻停留在會計頁面，強制切回進貨表
+        if (currentRole === 'counter' && (activeId === 'tab-accounting' || activeId === 'tab-cashflow' || activeId === 'tab-payment-check')) {
+            switchTab('tab-purchase');
+        }
+    }
+}
         // 資料模型與預設資料
         let currentStore = "store_main";
         let currentRole = "boss";
