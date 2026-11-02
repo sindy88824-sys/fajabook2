@@ -28,7 +28,7 @@
                     <label class="block text-sm font-semibold text-slate-700 mb-2">選擇登入角色</label>
                     <select id="loginRoleSelect" class="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         <option value="boss">👑 會計 / 店長 (所有開放權限)</option>
-                        <option value="counter">🏪 櫃台人員 (可檢視除現金流、月報表外所有功能)</option>
+                        <option value="counter">🏪 櫃台人員 (僅開放除現金流與月報表外之功能)</option>
                         <option value="warehouse">📦 倉管人員 (叫貨、庫存、盤點、機台、廠商)</option>
                         <option value="buyer">🛒 採購人員 (僅預定進貨叫貨頁面)</option>
                     </select>
@@ -782,8 +782,10 @@
                 const el = document.getElementById(navId);
                 if (el) {
                     if (allowedRoles.includes(currentRole)) {
+                        el.style.display = "";
                         el.classList.remove("hidden");
                     } else {
+                        el.style.display = "none";
                         el.classList.add("hidden");
                     }
                 }
@@ -793,7 +795,9 @@
             const activeSection = document.querySelector(".tab-section:not(.hidden)");
             if (activeSection) {
                 const activeId = activeSection.id;
-                const allowedTabsForCurrentRole = Object.keys(navs).filter(navId => navs[navId].includes(currentRole)).map(navId => navId.replace('nav-', 'tab-'));
+                const allowedTabsForCurrentRole = Object.keys(navs)
+                    .filter(navId => navs[navId].includes(currentRole))
+                    .map(navId => navId.replace('nav-', 'tab-'));
 
                 if (!allowedTabsForCurrentRole.includes(activeId)) {
                     switchTab('tab-purchase');
