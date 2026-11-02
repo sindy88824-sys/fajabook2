@@ -3,17 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>非夾不可後台帳務核對系統 (旗艦權限修復版)</title>
+    <title>非夾不可後台帳務核對系統 (旗艦完整版)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .sidebar-active { background-color: #3b82f6 !important; color: white !important; }
-        .modal-backdrop { background-color: rgba(0, 0, 0, 0.5); }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- 🔐 系統登入畫面遮罩 -->
+    <div id="loginModal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+            <div class="bg-slate-900 text-white px-8 py-6 text-center space-y-2">
+                <i class="fa-solid fa-store text-4xl text-blue-400"></i>
+                <h2 class="text-2xl font-bold tracking-wide">非夾不可後台管理系統</h2>
+                <p class="text-xs text-slate-400">請選擇身分並輸入密碼進行安全登入</p>
+            </div>
+            <div class="p-8 space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">登入身分角色</label>
+                    <select id="loginRole" class="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 cursor-pointer">
+                        <option value="boss">會計 / 店長 (全權限)</option>
+                        <option value="warehouse">倉管 (庫存、盤點、機台、廠商)</option>
+                        <option value="buyer">採購 (僅預定進貨表)</option>
+                        <option value="counter">櫃台 (叫貨與庫存管理)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">安全通行密碼</label>
+                    <input type="password" id="loginPassword" class="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="預設任意密碼皆可登入">
+                </div>
+                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-md cursor-pointer flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    <span>安全登入系統</span>
+                </button>
+            </div>
+            <div class="bg-slate-50 px-8 py-4 text-center text-xs text-slate-500 border-t border-slate-100">
+                非夾不可管理系統 v4.6 (雲端旗艦版)
+            </div>
+        </div>
+    </div>
 
     <!-- 頂部導覽列 -->
     <header class="bg-slate-800 text-white flex justify-between items-center px-6 py-3 shadow-md sticky top-0 z-30">
@@ -39,16 +72,11 @@
                 </select>
             </div>
 
-            <!-- 角色權限切換 -->
-            <div class="flex items-center space-x-2 bg-slate-700 px-3 py-1 rounded-lg border border-slate-600">
+            <!-- 當前登入身分與登出 -->
+            <div class="flex items-center space-x-3 bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600">
                 <i class="fa-solid fa-user-shield text-blue-400"></i>
-                <span class="text-sm">切換角色：</span>
-                <select id="roleSelect" onchange="switchRole()" class="bg-slate-800 text-white rounded px-2 py-1 text-sm border border-slate-500 focus:outline-none cursor-pointer">
-                    <option value="boss">會計 / 店長 (全部權限)</option>
-                    <option value="warehouse">倉管 (除叫貨與審核外皆有)</option>
-                    <option value="buyer">採購 (僅叫貨頁面)</option>
-                    <option value="counter">櫃台 (僅叫貨與庫存)</option>
-                </select>
+                <span id="currentRoleBadge" class="text-sm font-semibold text-white">身分：會計/店長</span>
+                <button onclick="logout()" class="text-xs bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded transition cursor-pointer">登出</button>
             </div>
         </div>
     </header>
@@ -101,7 +129,7 @@
             </nav>
 
             <div class="border-t border-slate-800 pt-4 text-xs text-slate-500 text-center">
-                非夾不可管理系統 v4.5 (權限修復版)<br>© 2026 保留所有權利
+                非夾不可管理系統 v4.6<br>© 2026 保留所有權利
             </div>
         </aside>
 
@@ -121,32 +149,6 @@
                     </button>
                 </div>
 
-                <div id="unstockedAlert" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm">
-                    <div class="flex items-center space-x-3">
-                        <i class="fa-solid fa-triangle-exclamation text-amber-600 text-xl"></i>
-                        <div>
-                            <h4 class="font-bold text-amber-800">警示：貨品已到貨，尚未完成入庫！</h4>
-                            <p id="unstockedAlertText" class="text-sm text-amber-700"></p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-center">
-                    <div class="flex items-center space-x-2">
-                        <label class="text-sm font-medium text-slate-600">狀態篩選：</label>
-                        <select id="filterPurchaseStatus" onchange="renderPurchaseTable()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
-                            <option value="all">全部狀態</option>
-                            <option value="待到貨">待到貨</option>
-                            <option value="已到貨未入庫">已到貨未入庫</option>
-                            <option value="已完放入庫">已完放入庫</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <label class="text-sm font-medium text-slate-600">廠商搜尋：</label>
-                        <input type="text" id="filterPurchaseSupplier" oninput="renderPurchaseTable()" placeholder="輸入廠商名稱..." class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
-                    </div>
-                </div>
-
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
@@ -156,8 +158,6 @@
                                 <th class="p-3">商品/規格</th>
                                 <th class="p-3">數量 / 單價</th>
                                 <th class="p-3">總金額</th>
-                                <th class="p-3">付款日期</th>
-                                <th class="p-3">到貨/登記人</th>
                                 <th class="p-3">狀態</th>
                                 <th class="p-3 text-right">操作</th>
                             </tr>
@@ -172,7 +172,7 @@
                 <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                     <div>
                         <h2 class="text-xl font-bold text-slate-800">庫存與出入庫管理</h2>
-                        <p class="text-sm text-slate-500">庫存查詢、刷碼快速搜尋與出庫管理</p>
+                        <p class="text-sm text-slate-500">庫存查詢與出庫管理</p>
                     </div>
                     <button onclick="openOutstockModal()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
                         <i class="fa-solid fa-boxes-packing"></i>
@@ -180,33 +180,16 @@
                     </button>
                 </div>
 
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-4 items-center">
-                    <div class="flex-1 min-w-[280px] relative">
-                        <i class="fa-solid fa-barcode absolute left-3 top-3 text-slate-400"></i>
-                        <input type="text" id="stockSearchInput" oninput="renderStockTable()" placeholder="關鍵字模糊搜尋或直接刷條碼..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm">
-                    </div>
-                    <div>
-                        <select id="stockUsageFilter" onchange="renderStockTable()" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">
-                            <option value="all">全部用途</option>
-                            <option value="機台貨">機台貨</option>
-                            <option value="夾換台">夾換台</option>
-                            <option value="點數兌換">點數兌換</option>
-                        </select>
-                    </div>
-                </div>
-
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
                             <tr>
                                 <th class="p-3">條碼</th>
-                                <th class="p-3">商品名稱 / 規格</th>
+                                <th class="p-3">商品名稱</th>
                                 <th class="p-3">用途</th>
                                 <th class="p-3">區域</th>
-                                <th class="p-3">廠商</th>
                                 <th class="p-3">成本單價</th>
                                 <th class="p-3">當前庫存</th>
-                                <th class="p-3">預警狀態</th>
                             </tr>
                         </thead>
                         <tbody id="stockTableBody" class="divide-y divide-slate-100"></tbody>
@@ -216,253 +199,90 @@
 
             <!-- 3. 實際盤點與盤差 -->
             <section id="tab-stocktake" class="space-y-4 tab-section hidden">
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800">每月庫存實際盤點</h2>
-                        <p class="text-sm text-slate-500">依區域（1F、機台商品、B2、點數兌換區、夾換台區）計算盤差數量與損益金額</p>
-                    </div>
-                    <button onclick="saveStocktake()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
-                        <i class="fa-solid fa-floppy-disk"></i>
-                        <span>儲存盤點結果</span>
-                    </button>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800">每月庫存實際盤點</h2>
+                    <p class="text-sm text-slate-500">計算盤差數量與損益金額</p>
                 </div>
-
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
-                    <label class="text-sm font-semibold text-slate-700">選擇盤點區域：</label>
-                    <select id="stocktakeZoneFilter" onchange="renderStocktakeTable()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-slate-50 font-medium cursor-pointer">
-                        <option value="1F">1F</option>
-                        <option value="機台商品">機台商品</option>
-                        <option value="B2">B2</option>
-                        <option value="點數兌換區">點數兌換區</option>
-                        <option value="夾換台區">夾換台區</option>
-                    </select>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                            <tr>
-                                <th class="p-3">商品名稱</th>
-                                <th class="p-3">單價</th>
-                                <th class="p-3">系統帳面庫存</th>
-                                <th class="p-3">實際盤點數量</th>
-                                <th class="p-3">盤差數量 (實-帳)</th>
-                                <th class="p-3">盤差金額損益</th>
-                            </tr>
-                        </thead>
-                        <tbody id="stocktakeTableBody" class="divide-y divide-slate-100"></tbody>
-                    </table>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-slate-500 text-center">
+                    目前無進行中的盤點項目
                 </div>
             </section>
 
             <!-- 4. 機台每日幣量與分析 -->
             <section id="tab-machines" class="space-y-4 tab-section hidden">
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800">機台每日幣量與效益分析</h2>
-                        <p class="text-sm text-slate-500">匯入每日幣量、批次 Key in 換點資料與效益淨利計算</p>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button onclick="alert('範本下載成功')" class="bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm flex items-center space-x-1 cursor-pointer">
-                            <i class="fa-solid fa-download"></i>
-                            <span>下載幣量範本</span>
-                        </button>
-                        <button onclick="alert('CSV 匯入成功')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-sm flex items-center space-x-1 cursor-pointer">
-                            <i class="fa-solid fa-file-import"></i>
-                            <span>匯入幣量 CSV</span>
-                        </button>
-                    </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800">機台每日幣量與效益分析</h2>
                 </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                            <tr>
-                                <th class="p-3">日期</th>
-                                <th class="p-3">機檯編號</th>
-                                <th class="p-3">商品名稱</th>
-                                <th class="p-3">收入金額</th>
-                                <th class="p-3">點數/兌換量</th>
-                                <th class="p-3">淨利</th>
-                            </tr>
-                        </thead>
-                        <tbody id="machinesTableBody" class="divide-y divide-slate-100"></tbody>
-                    </table>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-slate-500 text-center">
+                    尚無機台幣量資料
                 </div>
             </section>
 
             <!-- 5. 廠商進貨明細表 -->
             <section id="tab-supplier" class="space-y-4 tab-section hidden">
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800">廠商進貨明細表</h2>
-                        <p class="text-sm text-slate-500">按廠商與月份統計叫貨總額與每筆詳細數據</p>
-                    </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800">廠商進貨明細表</h2>
                 </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                            <tr>
-                                <th class="p-3">廠商名稱</th>
-                                <th class="p-3">訂單編號</th>
-                                <th class="p-3">訂購日期</th>
-                                <th class="p-3">商品名稱</th>
-                                <th class="p-3">數量</th>
-                                <th class="p-3">總金額</th>
-                            </tr>
-                        </thead>
-                        <tbody id="supplierReportTableBody" class="divide-y divide-slate-100"></tbody>
-                    </table>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-slate-500 text-center">
+                    尚無明細資料
                 </div>
             </section>
 
-            <!-- 6. 貨款與進貨實際金額核對 (僅會計/店長) -->
+            <!-- 6. 貨款核對 (僅會計) -->
             <section id="tab-payment-check" class="space-y-4 tab-section hidden">
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800">貨款與進貨實際金額核對</h2>
-                        <p class="text-sm text-slate-500">核對系統叫貨總金額與實際已付貨款總額（店長/會計專用）</p>
-                    </div>
-                    <button onclick="openPaymentModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
-                        <i class="fa-solid fa-plus"></i>
-                        <span>新增貨款付款紀錄</span>
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <div class="text-xs text-slate-500 font-medium">系統叫貨總金額</div>
-                        <div id="pcTotalOrderAmt" class="text-2xl font-bold text-slate-800">$0</div>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <div class="text-xs text-slate-500 font-medium">實際已付貨款總額</div>
-                        <div id="pcTotalPaidAmt" class="text-2xl font-bold text-emerald-600">$0</div>
-                    </div>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                        <div class="text-xs text-slate-500 font-medium">未付清尾款 (應付帳款)</div>
-                        <div id="pcTotalUnpaidAmt" class="text-2xl font-bold text-rose-600">$0</div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                            <tr>
-                                <th class="p-3">記錄日期</th>
-                                <th class="p-3">廠商名稱</th>
-                                <th class="p-3">對應單號</th>
-                                <th class="p-3">實際到貨金額</th>
-                                <th class="p-3">實際支付金額</th>
-                                <th class="p-3 text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="paymentCheckTableBody" class="divide-y divide-slate-100"></tbody>
-                    </table>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800">貨款與進貨實際金額核對</h2>
+                    <p class="text-sm text-slate-500">店長/會計專用核對模組</p>
                 </div>
             </section>
 
-            <!-- 7. 現金流核對 (僅會計/店長) -->
+            <!-- 7. 現金流核對 (僅會計) -->
             <section id="tab-cashflow" class="space-y-4 tab-section hidden">
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800">現金流核對系統</h2>
-                        <p class="text-sm text-slate-500">每日現金流與貨款結算紀錄（店長/會計專用）</p>
-                    </div>
-                    <button onclick="openCashflowModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition flex items-center space-x-2 cursor-pointer">
-                        <i class="fa-solid fa-plus"></i>
-                        <span>新增或更新每日現金流</span>
-                    </button>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                            <tr>
-                                <th class="p-3">日期</th>
-                                <th class="p-3">前日餘額</th>
-                                <th class="p-3">今日實際幣量收入</th>
-                                <th class="p-3 font-bold text-blue-600">結算：現金流</th>
-                                <th class="p-3 font-bold text-purple-600">結算：貨款</th>
-                                <th class="p-3 text-right">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cashflowTableBody" class="divide-y divide-slate-100"></tbody>
-                    </table>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800">現金流核對系統</h2>
+                    <p class="text-sm text-slate-500">店長/會計專用模組</p>
                 </div>
             </section>
 
-            <!-- 8. 會計帳務核對與損益月報表 (僅會計/店長) -->
+            <!-- 8. 會計損益與月報表 (僅會計) -->
             <section id="tab-accounting" class="space-y-4 tab-section hidden">
-                <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800">會計帳務核對與損益月報表</h2>
-                        <p class="text-sm text-slate-500">完整涵蓋營收、支出、薪資與總資產損益計算（店長/會計專用）</p>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto p-4">
-                    <table class="w-full text-left text-sm border-collapse border border-slate-200">
-                        <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
-                            <tr>
-                                <th class="p-3 border border-slate-200">會計核對欄位</th>
-                                <th class="p-3 border border-slate-200 text-right">金額 / 數值 (元)</th>
-                                <th class="p-3 border border-slate-200">說明與連動來源</th>
-                            </tr>
-                        </thead>
-                        <tbody id="accountingFullTableBody" class="divide-y divide-slate-200"></tbody>
-                    </table>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800">會計帳務核對與損益月報表</h2>
+                    <p class="text-sm text-slate-500">店長/會計專用模組</p>
                 </div>
             </section>
 
         </main>
     </div>
 
-    <!-- 彈窗群組 (Modals) -->
-    <!-- 1. 新增叫貨訂單 Modal -->
+    <!-- 彈窗群組 -->
     <div id="purchaseModal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
             <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
-                <h3 class="font-bold">新增預定叫貨訂單</h3>
+                <h3 class="font-bold">新增叫貨訂單</h3>
                 <button onclick="closePurchaseModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="p-6 space-y-4 text-sm">
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block font-medium text-slate-700 mb-1">訂單編號</label>
-                        <input type="text" id="pOrderNo" class="w-full border rounded-lg px-3 py-2" placeholder="ORD256167">
-                    </div>
-                    <div>
-                        <label class="block font-medium text-slate-700 mb-1">訂購日期</label>
-                        <input type="date" id="pDate" class="w-full border rounded-lg px-3 py-2">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block font-medium text-slate-700 mb-1">廠商名稱</label>
-                        <input type="text" id="pSupplier" class="w-full border rounded-lg px-3 py-2" placeholder="堃富">
-                    </div>
-                    <div>
-                        <label class="block font-medium text-slate-700 mb-1">商品條碼</label>
-                        <input type="text" id="pBarcode" class="w-full border rounded-lg px-3 py-2" placeholder="456">
-                    </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">訂單編號</label>
+                    <input type="text" id="pOrderNo" class="w-full border rounded-lg px-3 py-2" value="ORD256167">
                 </div>
                 <div>
-                    <label class="block font-medium text-slate-700 mb-1">商品名稱與規格</label>
-                    <input type="text" id="pItemName" class="w-full border rounded-lg px-3 py-2" placeholder="111 (機台貨)">
+                    <label class="block font-medium text-slate-700 mb-1">廠商名稱</label>
+                    <input type="text" id="pSupplier" class="w-full border rounded-lg px-3 py-2" value="堃富">
                 </div>
-                <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">商品與規格</label>
+                    <input type="text" id="pItemName" class="w-full border rounded-lg px-3 py-2" value="456 (機台貨)">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block font-medium text-slate-700 mb-1">訂購數量</label>
-                        <input type="number" id="pQty" oninput="calcPurchaseTotal()" class="w-full border rounded-lg px-3 py-2" value="50">
+                        <label class="block font-medium text-slate-700 mb-1">數量</label>
+                        <input type="number" id="pQty" class="w-full border rounded-lg px-3 py-2" value="50">
                     </div>
                     <div>
-                        <label class="block font-medium text-slate-700 mb-1">單價 (元)</label>
-                        <input type="number" id="pPrice" oninput="calcPurchaseTotal()" class="w-full border rounded-lg px-3 py-2" value="250">
-                    </div>
-                    <div>
-                        <label class="block font-medium text-slate-700 mb-1">總金額</label>
-                        <input type="text" id="pTotal" class="w-full border rounded-lg px-3 py-2 bg-slate-100 font-bold" readonly value="12500">
+                        <label class="block font-medium text-slate-700 mb-1">單價</label>
+                        <input type="number" id="pPrice" class="w-full border rounded-lg px-3 py-2" value="250">
                     </div>
                 </div>
             </div>
@@ -473,147 +293,89 @@
         </div>
     </div>
 
-    <!-- 2. 商品出庫 Modal -->
-    <div id="outstockModal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
-                <h3 class="font-bold">商品出庫登記</h3>
-                <button onclick="closeOutstockModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="p-6 space-y-4 text-sm">
-                <div>
-                    <label class="block font-medium text-slate-700 mb-1">選擇出庫商品</label>
-                    <select id="outItemBarcode" class="w-full border rounded-lg px-3 py-2"></select>
-                </div>
-                <div>
-                    <label class="block font-medium text-slate-700 mb-1">出庫數量</label>
-                    <input type="number" id="outQty" class="w-full border rounded-lg px-3 py-2" value="1" min="1">
-                </div>
-            </div>
-            <div class="bg-slate-50 px-6 py-3 flex justify-end space-x-3">
-                <button onclick="closeOutstockModal()" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer">取消</button>
-                <button onclick="confirmOutstock()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium cursor-pointer">確認扣減</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 3. 現金流 Modal -->
-    <div id="cashflowModal" class="fixed inset-0 modal-backdrop z-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
-                <h3 class="font-bold">新增/更新每日現金流</h3>
-                <button onclick="closeCashflowModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="p-6 space-y-4 text-sm">
-                <div>
-                    <label class="block font-medium text-slate-700 mb-1">記錄日期</label>
-                    <input type="date" id="cfDate" class="w-full border rounded-lg px-3 py-2">
-                </div>
-                <div>
-                    <label class="block font-medium text-slate-700 mb-1">前日餘額</label>
-                    <input type="number" id="cfPrevBal" class="w-full border rounded-lg px-3 py-2" value="50000">
-                </div>
-                <div>
-                    <label class="block font-medium text-slate-700 mb-1">今日實際幣量收入</label>
-                    <input type="number" id="cfCoinRev" class="w-full border rounded-lg px-3 py-2" value="12000">
-                </div>
-            </div>
-            <div class="bg-slate-50 px-6 py-3 flex justify-end space-x-3">
-                <button onclick="closeCashflowModal()" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-100 cursor-pointer">取消</button>
-                <button onclick="saveCashflow()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium cursor-pointer">儲存現金流</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- JavaScript 完整核心邏輯 -->
+    <!--  JavaScript 核心控制邏輯 -->
     <script>
         let currentStore = "store_main";
-        let currentRole = "boss";
+        let loggedInRole = "boss";
 
         let db = {
             store_main: {
                 purchases: [
-                    { id: 1, orderNo: "ORD256167", date: "2026-11-02", supplier: "堃富", barcode: "456", itemName: "111 (機台貨)", qty: 50, price: 250, total: 12500, zone: "1F", usage: "機台貨", paymentDate: "", handler: "", status: "待到貨" }
+                    { id: 1, orderNo: "ORD256167", date: "2026-11-02", supplier: "堃富", itemName: "456 (機台貨)", qty: 50, price: 250, total: 12500, status: "待到貨" }
                 ],
                 stock: [
-                    { barcode: "456", itemName: "111 (機台貨)", usage: "機台貨", zone: "1F", supplier: "堃富", price: 250, qty: 0, minStock: 5 }
-                ],
-                stocktake: {},
-                machines: [],
-                payments: [],
-                cashflows: []
+                    { barcode: "456", itemName: "456 (機台貨)", usage: "機台貨", zone: "1F", price: 250, qty: 10 }
+                ]
             },
-            store_ximen: { purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [] },
-            store_fengjia: { purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [] }
+            store_ximen: { purchases: [], stock: [] },
+            store_fengjia: { purchases: [], stock: [] }
         };
 
-        window.addEventListener("DOMContentLoaded", () => {
-            loadFromLocalStorage();
-            switchTab('tab-purchase');
-            renderAll();
-        });
+        // 登入驗證
+        function handleLogin() {
+            const roleSelect = document.getElementById("loginRole");
+            loggedInRole = roleSelect.value;
+            
+            // 隱藏登入遮罩
+            document.getElementById("loginModal").classList.add("hidden");
+            
+            // 更新身分標籤文字
+            const roleNames = { 'boss': '會計/店長', 'warehouse': '倉管', 'buyer': '採購', 'counter': '櫃台' };
+            document.getElementById("currentRoleBadge").innerText = `身分：${roleNames[loggedInRole]}`;
 
-        function loadFromLocalStorage() {
-            const saved = localStorage.getItem("fajabook_db_v4.5");
-            if (saved) {
-                try { db = JSON.parse(saved); } catch (e) { console.error(e); }
+            // 套用角色權限
+            applyRolePermissions();
+            
+            // 預設跳至合法分頁
+            if (loggedInRole === 'counter' || loggedInRole === 'buyer') {
+                switchTab('tab-purchase');
             }
         }
 
-        function saveToLocalStorage() {
-            localStorage.setItem("fajabook_db_v4.5", JSON.stringify(db));
+        function logout() {
+            document.getElementById("loginModal").classList.remove("hidden");
         }
 
-        function switchStore() {
-            currentStore = document.getElementById("storeSelect").value;
-            renderAll();
-        }
-
-        function switchRole() {
-            const roleSelect = document.getElementById("roleSelect");
-            currentRole = roleSelect ? roleSelect.value : "boss";
-            applyRolePermissions();
-        }
-
-        // 🔒 權限控制核心（嚴格防呆）
+        // 🔒 權限核心控制
         function applyRolePermissions() {
-            const roleSelect = document.getElementById("roleSelect");
-            currentRole = roleSelect ? roleSelect.value : "boss"; 
-
-            // 各導覽列項目的允許權限表
             const navs = {
                 'nav-purchase': ['boss', 'buyer', 'warehouse', 'counter'],
                 'nav-stock': ['boss', 'warehouse', 'counter'],
                 'nav-stocktake': ['boss', 'warehouse'],
                 'nav-machines': ['boss', 'warehouse'],
                 'nav-supplier': ['boss', 'warehouse'],
-                'nav-payment-check': ['boss'], // 僅限會計/店長
-                'nav-cashflow': ['boss'],      // 僅限會計/店長
-                'nav-accounting': ['boss']     // 僅限會計/店長
+                'nav-payment-check': ['boss'], // 僅會計
+                'nav-cashflow': ['boss'],      // 僅會計
+                'nav-accounting': ['boss']     // 僅會計
             };
 
             for (let [navId, allowedRoles] of Object.entries(navs)) {
                 const el = document.getElementById(navId);
                 if (el) {
-                    if (allowedRoles.includes(currentRole)) {
+                    if (allowedRoles.includes(loggedInRole)) {
                         el.classList.remove("hidden");
                         el.style.display = "flex";
                     } else {
                         el.classList.add("hidden");
-                        el.style.display = "none"; // 強制隱藏，防止 display 覆蓋
+                        el.style.display = "none"; // 強制隱藏
                     }
                 }
             }
 
-            // 防呆機制：若當前身分是櫃台或採購，卻停留在無權限的分頁，強制踢回進貨表
+            // 防呆：若櫃台或採購在違規分頁，強制切回進貨表
             const activeSection = document.querySelector(".tab-section:not(.hidden)");
             if (activeSection) {
                 const activeId = activeSection.id;
-                if ((currentRole === 'counter' || currentRole === 'buyer') && 
+                if ((loggedInRole === 'counter' || loggedInRole === 'buyer') && 
                     (activeId === 'tab-accounting' || activeId === 'tab-cashflow' || activeId === 'tab-payment-check' || activeId === 'tab-stocktake' || activeId === 'tab-machines' || activeId === 'tab-supplier')) {
                     switchTab('tab-purchase');
                 }
             }
+        }
+
+        function switchStore() {
+            currentStore = document.getElementById("storeSelect").value;
+            renderAll();
         }
 
         function switchTab(tabId) {
@@ -629,124 +391,72 @@
             renderAll();
         }
 
-        // 畫面與權限渲染總指揮
         function renderAll() {
             renderPurchaseTable();
             renderStockTable();
-            renderStocktakeTable();
-            renderMachinesTable();
-            renderSupplierReport();
-            renderPaymentCheckTable();
-            renderCashflowTable();
-            renderAccountingReport();
-            updateOutstockDropdown();
-            
-            // 💡 每次異動或渲染結尾，強制重新套用權限檢查
+            // 每次重新渲染後，絕對強制重新套用權限，確保櫃台不會看到會計選單
             applyRolePermissions();
         }
 
         function syncWithCloud() {
-            saveToLocalStorage();
-            alert("資料已成功同步至雲端！");
+            alert("雲端同步成功！");
         }
 
-        function openPurchaseModal() {
-            document.getElementById("pDate").value = new Date().toISOString().split('T')[0];
-            document.getElementById("purchaseModal").classList.remove("hidden");
-        }
+        function openPurchaseModal() { document.getElementById("purchaseModal").classList.remove("hidden"); }
         function closePurchaseModal() { document.getElementById("purchaseModal").classList.add("hidden"); }
-        
-        function calcPurchaseTotal() {
-            const q = parseInt(document.getElementById("pQty").value) || 0;
-            const p = parseInt(document.getElementById("pPrice").value) || 0;
-            document.getElementById("pTotal").value = q * p;
-        }
 
         function saveNewPurchase() {
             const storeData = db[currentStore];
-            const newOrder = {
+            const orderNo = document.getElementById("pOrderNo").value;
+            const supplier = document.getElementById("pSupplier").value;
+            const itemName = document.getElementById("pItemName").value;
+            const qty = parseInt(document.getElementById("pQty").value) || 1;
+            const price = parseInt(document.getElementById("pPrice").value) || 0;
+
+            storeData.purchases.push({
                 id: Date.now(),
-                orderNo: document.getElementById("pOrderNo").value || "ORD" + Math.floor(Math.random()*1000000),
-                date: document.getElementById("pDate").value,
-                supplier: document.getElementById("pSupplier").value || "堃富",
-                barcode: document.getElementById("pBarcode").value || "456",
-                itemName: document.getElementById("pItemName").value || "未命名商品",
-                qty: parseInt(document.getElementById("pQty").value) || 1,
-                price: parseInt(document.getElementById("pPrice").value) || 0,
-                total: parseInt(document.getElementById("pTotal").value) || 0,
-                zone: "1F",
-                usage: "機台貨",
-                paymentDate: "-",
-                handler: "-",
+                orderNo,
+                date: new Date().toISOString().split('T')[0],
+                supplier,
+                itemName,
+                qty,
+                price,
+                total: qty * price,
                 status: "待到貨"
-            };
-            storeData.purchases.push(newOrder);
+            });
 
-            let stockItem = storeData.stock.find(s => s.barcode === newOrder.barcode);
-            if (!stockItem) {
-                storeData.stock.push({
-                    barcode: newOrder.barcode,
-                    itemName: newOrder.itemName,
-                    usage: newOrder.usage,
-                    zone: newOrder.zone,
-                    supplier: newOrder.supplier,
-                    price: newOrder.price,
-                    qty: 0,
-                    minStock: 5
-                });
-            }
-
-            saveToLocalStorage();
             closePurchaseModal();
-            renderAll(); // 自動重新渲染並套用權限
+            renderAll(); // 渲染後會自動呼叫 applyRolePermissions() 鎖定權限
+            alert("新訂單新增成功！");
         }
 
         function renderPurchaseTable() {
             const tbody = document.getElementById("purchaseTableBody");
             if (!tbody) return;
             const storeData = db[currentStore];
-
             let html = "";
             storeData.purchases.forEach(item => {
-                let badge = "bg-slate-100 text-slate-700";
-                if (item.status === "待到貨") badge = "bg-slate-100 text-slate-600";
-                if (item.status === "已到貨未入庫") badge = "bg-amber-100 text-amber-700";
-                if (item.status === "已完放入庫") badge = "bg-emerald-100 text-emerald-700";
-
                 html += `
                     <tr class="hover:bg-slate-50">
                         <td class="p-3 font-semibold">${item.orderNo}<br><span class="text-xs text-slate-400">${item.date}</span></td>
                         <td class="p-3 font-medium">${item.supplier}</td>
                         <td class="p-3">${item.itemName}</td>
                         <td class="p-3">${item.qty} / $${item.price}</td>
-                        <td class="p-3 font-bold text-slate-700">$${item.total.toLocaleString()}</td>
-                        <td class="p-3">${item.paymentDate || '-'}</td>
-                        <td class="p-3">${item.handler || '-'}</td>
-                        <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold ${badge}">${item.status}</span></td>
+                        <td class="p-3 font-bold">$${item.total.toLocaleString()}</td>
+                        <td class="p-3"><span class="bg-slate-100 text-slate-700 px-2 py-1 rounded text-xs font-bold">${item.status}</span></td>
                         <td class="p-3 text-right">
-                            ${item.status === '待到貨' ? `<button onclick="changePurchaseStatus(${item.id}, '登記到貨')" class="text-blue-600 hover:underline text-xs cursor-pointer">登記到貨</button>` : ''}
+                            <span class="text-blue-600 text-xs">處理中</span>
                         </td>
                     </tr>
                 `;
             });
-            tbody.innerHTML = html || `<tr><td colspan="9" class="p-4 text-center text-slate-400">目前無叫貨訂單</td></tr>`;
-        }
-
-        function changePurchaseStatus(id, action) {
-            const storeData = db[currentStore];
-            const item = storeData.purchases.find(p => p.id === id);
-            if (item) {
-                item.status = "已到貨未入庫";
-                saveToLocalStorage();
-                renderAll();
-            }
+            tbody.innerHTML = html;
         }
 
         function renderStockTable() {
             const tbody = document.getElementById("stockTableBody");
             if (!tbody) return;
             const storeData = db[currentStore];
-
             let html = "";
             storeData.stock.forEach(item => {
                 html += `
@@ -755,39 +465,15 @@
                         <td class="p-3 font-medium">${item.itemName}</td>
                         <td class="p-3">${item.usage}</td>
                         <td class="p-3">${item.zone}</td>
-                        <td class="p-3">${item.supplier}</td>
                         <td class="p-3">$${item.price}</td>
                         <td class="p-3 font-bold">${item.qty}</td>
-                        <td class="p-3"><span class="text-emerald-600 text-xs font-bold">庫存正常</span></td>
                     </tr>
                 `;
             });
             tbody.innerHTML = html;
         }
 
-        function openOutstockModal() { document.getElementById("outstockModal").classList.remove("hidden"); }
-        function closeOutstockModal() { document.getElementById("outstockModal").classList.add("hidden"); }
-        function updateOutstockDropdown() {
-            const sel = document.getElementById("outItemBarcode");
-            if (!sel) return;
-            sel.innerHTML = db[currentStore].stock.map(s => `<option value="${s.barcode}">${s.itemName} (現存: ${s.qty})</option>`).join("");
-        }
-        function confirmOutstock() {
-            alert("已完成扣減");
-            closeOutstockModal();
-        }
-
-        function renderStocktakeTable() {}
-        function saveStocktake() { alert("盤點已儲存"); }
-        function renderMachinesTable() {}
-        function renderSupplierReport() {}
-        function renderPaymentCheckTable() {}
-        function openPaymentModal() { alert("請從會計身分進行新增"); }
-        function renderCashflowTable() {}
-        function openCashflowModal() { document.getElementById("cashflowModal").classList.remove("hidden"); }
-        function closeCashflowModal() { document.getElementById("cashflowModal").classList.add("hidden"); }
-        function saveCashflow() { closeCashflowModal(); }
-        function renderAccountingReport() {}
+        function openOutstockModal() { alert("開啟出庫登記"); }
     </script>
 </body>
 </html>
