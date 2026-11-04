@@ -1011,8 +1011,9 @@
                         <td class="p-3">${item.handler}</td>
                         <td class="p-3"><span class="px-2 py-1 rounded text-xs font-bold ${badge}">${item.status}</span></td>
                         <td class="p-3 text-right space-x-1">
-                            ${item.status === '待到貨' ? `<button onclick="changePurchaseStatus(${item.id}, '已到貨未入庫')" class="bg-amber-500 text-white px-2 py-1 rounded text-xs cursor-pointer">登記到貨</button>` : ''}
-                            ${item.status === '已到貨未入庫' ? `<button onclick="changePurchaseStatus(${item.id}, '已完放入庫')" class="bg-emerald-600 text-white px-2 py-1 rounded text-xs cursor-pointer">確認入庫</button>` : ''}
+                            ${item.status === '待到貨' ? `<button onclick="changePurchaseStatus(${item.id}, '已到貨未入庫')" class="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1 rounded text-xs cursor-pointer">登記到貨</button>` : ''}
+                            ${item.status === '已到貨未入庫' ? `<button onclick="changePurchaseStatus(${item.id}, '已完放入庫')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-xs cursor-pointer">確認入庫</button>` : ''}
+                            <button onclick="deletePurchase(${item.id})" class="bg-rose-500 hover:bg-rose-600 text-white px-2 py-1 rounded text-xs cursor-pointer">刪除</button>
                         </td>
                     </tr>
                 `;
@@ -1040,6 +1041,15 @@
                 saveToLocalStorage();
                 renderAll();
             }
+        }
+
+        // 刪除叫貨訂單函式
+        function deletePurchase(id) {
+            if (!confirm("確定要刪除這筆叫貨訂單嗎？")) return;
+            const storeData = db[currentStore];
+            storeData.purchases = storeData.purchases.filter(p => p.id !== id);
+            saveToLocalStorage();
+            renderAll();
         }
 
         function renderStockTable() {
