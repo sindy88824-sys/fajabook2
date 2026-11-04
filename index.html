@@ -564,8 +564,12 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block font-medium text-slate-700 mb-1">廠商名稱</label>
-                        <input type="text" id="pSupplier" class="w-full border rounded-lg px-3 py-2" placeholder="例如：好樂迪玩具">
+                        <label class="block font-medium text-slate-700 mb-1">廠商名稱 (可選取或直接手動輸入)</label>
+                        <!-- 使用 datalist 支援手動輸入與清單點選記憶 -->
+                        <input type="text" id="pSupplier" list="supplierListOptions" class="w-full border rounded-lg px-3 py-2" placeholder="選擇或輸入廠商名稱...">
+                        <datalist id="supplierListOptions">
+                            <!-- 動態載入廠商清單 -->
+                        </datalist>
                     </div>
                     <div>
                         <label class="block font-medium text-slate-700 mb-1">商品條碼 (Barcode)</label>
@@ -705,8 +709,16 @@
             buyer: "採購人員"
         };
 
+        // 您指定的 17 家現有廠商清單
+        let defaultSuppliers = [
+            "光泉", "堃富", "福記", "鑫冠宇", "垂坤", "客人許願", "陀螺", 
+            "養樂多", "GK", "豐茶道", "富嘉騰", "湖口傑", "仲毅", "淘寶", 
+            "奇奇玩具", "樂虎", "肉蟻"
+        ];
+
         let db = {
             store_main: {
+                suppliersList: [...defaultSuppliers],
                 purchases: [
                     { id: 1, orderNo: "PO-202610-001", date: "2026-10-01", supplier: "好樂迪玩具", barcode: "471111100001", itemName: "大號趴趴熊娃娃", qty: 20, price: 250, total: 5000, zone: "1F", usage: "機台貨", paymentDate: "2026-10-05", handler: "王店長", status: "已完放入庫" },
                     { id: 2, orderNo: "PO-202610-002", date: "2026-10-15", supplier: "三麗鷗批發", barcode: "471111100002", itemName: "庫洛米藍牙喇叭", qty: 10, price: 680, total: 6800, zone: "機台商品", usage: "機台貨", paymentDate: "2026-10-20", handler: "李倉管", status: "已完放入庫" }
@@ -730,8 +742,8 @@
                     { name: "10月正職薪資", category: "員工薪資", amount: 45000 }
                 ]
             },
-            store_ximen: { purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [], expenses: [] },
-            store_fengjia: { purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [], expenses: [] }
+            store_ximen: { suppliersList: [...defaultSuppliers], purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [], expenses: [] },
+            store_fengjia: { suppliersList: [...defaultSuppliers], purchases: [], stock: [], stocktake: {}, machines: [], payments: [], cashflows: [], expenses: [] }
         };
 
         window.addEventListener("DOMContentLoaded", () => {
@@ -772,7 +784,15 @@
         function loadFromLocalStorage() {
             const saved = localStorage.getItem("fajabook_db_v4");
             if (saved) {
-                try { db = JSON.parse(saved); } catch (e) { console.error(e); }
+                try { 
+                    db = JSON.parse(saved); 
+                    // 確保各分店都有 suppliersList
+                    Object.keys(db).forEach(storeKey => {
+                        if (!db[storeKey].suppliersList) {
+                            db[storeKey].suppliersList = [...defaultSuppliers];
+                        }
+                    });
+                } catch (e) { console.error(e); }
             }
         }
 
@@ -868,8 +888,23 @@
             renderCashflowTable();
             renderAccountingReport();
             updateOutstockDropdown();
+            updateSupplierDatalist();
             
             applyRolePermissions();
+        }
+
+        // 更新廠商自動完成清單選項
+        function updateSupplierDatalist() {
+            const datalist = document.getElementById("supplierListOptions");
+            if (!datalist) return;
+            const storeData = db[currentStore];
+            if (!storeData.suppliersList) storeData.suppliersList = [...defaultSuppliers];
+
+            let html = "";
+            storeData.suppliersList.forEach(supp => {
+                html += `<option value="${supp}">`;
+            });
+            datalist.innerHTML = html;
         }
 
         function syncWithCloud() {
@@ -887,6 +922,8 @@
 
         function openPurchaseModal() {
             document.getElementById("pDate").value = new Date().toISOString().split('T')[0];
+            document.getElementById("pSupplier").value = "";
+            updateSupplierDatalist();
             document.getElementById("purchaseModal").classList.remove("hidden");
         }
         function closePurchaseModal() { document.getElementById("purchaseModal").classList.add("hidden"); }
@@ -898,11 +935,19 @@
 
         function saveNewPurchase() {
             const storeData = db[currentStore];
+            const supplierInput = document.getElementById("pSupplier").value.trim() || "未指定廠商";
+
+            // 自動記憶新輸入或選擇的廠商名稱到清單中
+            if (!storeData.suppliersList) storeData.suppliersList = [...defaultSuppliers];
+            if (!storeData.suppliersList.includes(supplierInput)) {
+                storeData.suppliersList.push(supplierInput);
+            }
+
             const newOrder = {
                 id: Date.now(),
                 orderNo: document.getElementById("pOrderNo").value || "PO-" + Date.now(),
                 date: document.getElementById("pDate").value,
-                supplier: document.getElementById("pSupplier").value || "未指定廠商",
+                supplier: supplierInput,
                 barcode: document.getElementById("pBarcode").value || "BC" + Math.floor(Math.random()*100000),
                 itemName: document.getElementById("pItemName").value || "未命名商品",
                 qty: parseInt(document.getElementById("pQty").value) || 1,
@@ -1226,7 +1271,7 @@
         }
 
         function openPaymentModal() {
-            let supp = prompt("請輸入廠商名稱：", "好樂迪玩具");
+            let supp = prompt("請輸入廠商名稱：", "光泉");
             if (!supp) return;
             let amt = parseInt(prompt("請輸入實際支付金額：", "5000")) || 0;
             db[currentStore].payments.push({
